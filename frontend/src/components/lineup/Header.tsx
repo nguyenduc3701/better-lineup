@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useLineup } from "../../context/LineupContext";
 import { SupportedLang } from "../../app/translations";
 
@@ -16,6 +16,27 @@ export default function Header() {
     phases,
     getOrderedPhaseNames
   } = useLineup();
+
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          setUserName(user.name || "");
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  };
 
   return (
     <header className="px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between sticky top-0 z-50">
@@ -109,6 +130,24 @@ export default function Header() {
             </svg>
           )}
         </button>
+
+        {userName && (
+          <div className="flex items-center gap-3 ml-2 pl-3 border-l border-slate-800">
+            <div className="flex flex-col text-right">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tài khoản</span>
+              <span className="text-xs font-semibold text-slate-300">{userName}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-all cursor-pointer flex items-center justify-center"
+              title="Đăng xuất"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6ZM5.78 8.47a.75.75 0 0 0-1.06 0L1.47 11.72a.75.75 0 0 0 0 1.06l3.25 3.25a.75.75 0 1 0 1.06-1.06l-1.97-1.97h11.19a.75.75 0 0 0 0-1.5H3.81l1.97-1.97a.75.75 0 0 0 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

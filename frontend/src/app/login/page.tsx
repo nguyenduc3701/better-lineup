@@ -18,18 +18,41 @@ export default function LoginPage() {
     setError(null);
     setSuccess(null);
 
-    // Mock API call delay
-    setTimeout(() => {
-      if (email === "admin@betterlineup.com" && password === "password123") {
+    try {
+      const response = await fetch("http://localhost:8080/api/v1/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         setSuccess("Đăng nhập thành công! Đang chuyển hướng...");
+        localStorage.setItem("user", JSON.stringify(result.data));
         setTimeout(() => {
           router.push("/");
-        }, 1200);
+        }, 1000);
       } else {
-        setError("Email hoặc mật khẩu không chính xác. Thử lại với admin@betterlineup.com / password123");
+        setError(result.message || "Email hoặc mật khẩu không chính xác.");
         setIsLoading(false);
       }
-    }, 1500);
+    } catch (err: any) {
+      setError("Không thể kết nối đến máy chủ Backend. Đang sử dụng chế độ Offline. Thử lại với admin@betterlineup.com / password123");
+      setTimeout(() => {
+        if (email === "admin@betterlineup.com" && password === "password123") {
+          setSuccess("Đăng nhập thành công (Chế độ Offline)! Đang chuyển hướng...");
+          localStorage.setItem("user", JSON.stringify({ name: "Admin Offline", email }));
+          setTimeout(() => {
+            router.push("/");
+          }, 1000);
+        } else {
+          setIsLoading(false);
+        }
+      }, 1000);
+    }
   };
 
   return (

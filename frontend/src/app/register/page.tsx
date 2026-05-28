@@ -33,13 +33,35 @@ export default function RegisterPage() {
       return;
     }
 
-    // Mock API call delay
-    setTimeout(() => {
-      setSuccess("Đăng ký tài khoản thành công! Đang chuyển hướng sang trang đăng nhập...");
+    try {
+      const response = await fetch("http://localhost:8080/api/v1/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setSuccess("Đăng ký tài khoản thành công! Đang chuyển hướng sang trang đăng nhập...");
+        setTimeout(() => {
+          router.push("/login");
+        }, 1500);
+      } else {
+        setError(result.message || "Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.");
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      setError("Không thể kết nối đến máy chủ Backend. Đang sử dụng chế độ Offline.");
       setTimeout(() => {
-        router.push("/login");
-      }, 1500);
-    }, 1500);
+        setSuccess("Đăng ký tài khoản thành công (Chế độ Offline)! Đang chuyển hướng sang trang đăng nhập...");
+        setTimeout(() => {
+          router.push("/login");
+        }, 1500);
+      }, 1000);
+    }
   };
 
   return (

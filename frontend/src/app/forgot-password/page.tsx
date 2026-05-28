@@ -15,11 +15,30 @@ export default function ForgotPasswordPage() {
     setError(null);
     setSuccess(null);
 
-    // Mock API call delay
-    setTimeout(() => {
-      setSuccess("Liên kết đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (và cả thư rác)!");
+    try {
+      const response = await fetch("http://localhost:8080/api/v1/auth/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setSuccess("Liên kết đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (và cả thư rác) hoặc kiểm tra log server Spring Boot!");
+      } else {
+        setError(result.message || "Yêu cầu khôi phục mật khẩu không thành công.");
+      }
       setIsLoading(false);
-    }, 1500);
+    } catch (err: any) {
+      setError("Không thể kết nối đến máy chủ Backend. Đang sử dụng chế độ Offline.");
+      setTimeout(() => {
+        setSuccess("Liên kết đặt lại mật khẩu (Chế độ Offline) đã được giả lập gửi thành công!");
+        setIsLoading(false);
+      }, 1000);
+    }
   };
 
   return (
