@@ -108,6 +108,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [showTeamMotions, setShowTeamMotions] = useState(false);
 
   const animationFrameRef = useRef<number | null>(null);
+  const animationTimeoutRef = useRef<any>(null);
+  const playNextTimeoutRef = useRef<any>(null);
+  const startTimeoutRef = useRef<any>(null);
   const savedBasePlayers = useRef<Player[] | null>(null);
   const [animationState, setAnimationState] = useState<"idle" | "playing" | "finished">("idle");
   const [playMode, setPlayMode] = useState<string>("ALL");
@@ -600,6 +603,19 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const stopAndResetAnimation = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (animationTimeoutRef.current) {
+      clearTimeout(animationTimeoutRef.current);
+      animationTimeoutRef.current = null;
+    }
+    if (playNextTimeoutRef.current) {
+      clearTimeout(playNextTimeoutRef.current);
+      playNextTimeoutRef.current = null;
+    }
+    if (startTimeoutRef.current) {
+      clearTimeout(startTimeoutRef.current);
+      startTimeoutRef.current = null;
     }
     if (savedBasePlayers.current) {
       setPlayers(savedBasePlayers.current);
@@ -629,7 +645,22 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAnimationState("idle");
   }, [phases, activeConfigTab, getMergedPlayersForEditing]);
 
+  const phasesRef = useRef(phases);
+  useEffect(() => {
+    phasesRef.current = phases;
+  }, [phases]);
+
+  const activeConfigTabRef = useRef(activeConfigTab);
+  useEffect(() => {
+    activeConfigTabRef.current = activeConfigTab;
+  }, [activeConfigTab]);
+
+  const playNextPhaseInSequenceRef = useRef<((phasesMap?: Record<string, PhaseData>) => void) | null>(null);
+
   const runSinglePhaseAnim = useCallback((initialPhasePlayers: Player[]) => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
     const isLineup = animPhasesList.current[currentAnimPhaseIndex.current] === "Starting Lineup";
     const duration = isLineup ? 1000 : 2000;
     const startTime = performance.now();
@@ -665,8 +696,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const playNext = () => {
           if (animPhasesList.current.length > 1 && currentAnimPhaseIndex.current < animPhasesList.current.length - 1) {
             currentAnimPhaseIndex.current += 1;
-            setTimeout(() => {
-              playNextPhaseInSequence();
+            if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+            playNextTimeoutRef.current = setTimeout(() => {
+              playNextPhaseInSequenceRef.current?.();
             }, 450);
           } else {
             setAnimationState("finished");
@@ -680,7 +712,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const playNextPhaseInSequence = useCallback((phasesMap?: Record<string, PhaseData>) => {
-    const activePhases = phasesMap || phases;
+    const activePhases = phasesMap || phasesRef.current;
     const phaseName = animPhasesList.current[currentAnimPhaseIndex.current];
     if (!phaseName) {
       setAnimationState("finished");
@@ -695,11 +727,11 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    setFormationA(activeConfigTab === "A" ? targetPhase.formationA : oppPhase.formationA);
-    setFormationB(activeConfigTab === "B" ? targetPhase.formationB : oppPhase.formationB);
+    setFormationA(activeConfigTabRef.current === "A" ? targetPhase.formationA : oppPhase.formationA);
+    setFormationB(activeConfigTabRef.current === "B" ? targetPhase.formationB : oppPhase.formationB);
 
     const mergedPlayers = targetPhase.players.map((p) => {
-      if (p.team === activeConfigTab) {
+      if (p.team === activeConfigTabRef.current) {
         return JSON.parse(JSON.stringify(p));
       } else {
         const oppPlayer = oppPhase.players.find((op) => op.id === p.id);
@@ -710,10 +742,15 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setPlayers(mergedPlayers);
     setActivePhase(phaseName);
 
-    setTimeout(() => {
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
+    animationTimeoutRef.current = setTimeout(() => {
       runSinglePhaseAnim(mergedPlayers);
     }, 200);
-  }, [phases, activeConfigTab, getOppositePhaseName, runSinglePhaseAnim]);
+  }, [getOppositePhaseName, runSinglePhaseAnim]);
+
+  useEffect(() => {
+    playNextPhaseInSequenceRef.current = playNextPhaseInSequence;
+  }, [playNextPhaseInSequence]);
 
   const startAnimation = useCallback(() => {
     if (animationState === "playing") {
@@ -734,14 +771,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       savedActivePhaseBeforeAnim.current = activePhase;
       
       if (playMode === "ALL") {
-        const currentCategory = propagated[activePhase]?.category || "Attack";
-        let list: string[] = [];
-        if (currentCategory === "Defence") {
-          list = ["1. Pressing", "2. Mid-block", "3. Deep Defence"];
-        } else {
-          list = ["1. Build-up", "2. Progression", "3. Finishing"];
-        }
-        animPhasesList.current = ["Starting Lineup", ...list];
+        const attackList = ["1. Build-up", "2. Progression", "3. Finishing"];
+        const defenceList = ["1. Pressing", "2. Mid-block", "3. Deep Defence"];
+        animPhasesList.current = ["Starting Lineup", ...attackList, ...defenceList];
         currentAnimPhaseIndex.current = 0;
       } else if (playMode === "GROUP_Attack") {
         const list = getOrderedPhaseNames(propagated).filter(
@@ -773,7 +805,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAnimationState("playing");
       
       // Schedule call to playNextPhaseInSequence
-      setTimeout(() => {
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+      startTimeoutRef.current = setTimeout(() => {
         playNextPhaseInSequence(propagated);
       }, 0);
 
@@ -786,6 +819,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
+      if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
     };
   }, []);
 
