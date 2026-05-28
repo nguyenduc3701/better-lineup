@@ -1,0 +1,33 @@
+# OS Files
+.DS_Store
+Thumbs.db
+*.db
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swo
+*.swp
+
+# Package/Build directories (fallback if subfolders don't catch them)
+node_modules/
+target/
+.next/
+out/
+build/
+
+# Local/Environment configs
+.env*.local
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temp/Scratch files
+frontend/test-state*.js
