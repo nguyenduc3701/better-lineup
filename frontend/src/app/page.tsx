@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LineupProvider } from "../context/LineupContext";
+import { LineupProvider, useLineup } from "../context/LineupContext";
 import Header from "../components/lineup/Header";
 import Toolbar from "../components/lineup/Toolbar";
 import Pitch from "../components/lineup/Pitch";
@@ -13,10 +13,43 @@ import PlayerDetailsEditor from "../components/lineup/PlayerDetailsEditor";
 import NewPhaseModal from "../components/lineup/NewPhaseModal";
 import MatchSetupModal from "../components/lineup/MatchSetupModal";
 
+
+function HomeContent() {
+  const { isMatchSetupModalOpen, setIsMatchSetupModalOpen } = useLineup();
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
+      <Header />
+      
+      {/* Main Workspace */}
+      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-[1600px] w-full mx-auto">
+        {/* Pitch Area */}
+        <div className="flex-1 flex flex-col gap-4">
+          <Toolbar />
+          <Pitch />
+          <SubstitutesBench />
+          <QuickStats />
+        </div>
+
+        {/* Sidebar Controls */}
+        <div className="w-full lg:w-[380px] flex flex-col gap-6">
+          <TeamSettings />
+          <PlayerDetailsEditor />
+        </div>
+      </main>
+
+      {/* Create New Phase Modal */}
+      <NewPhaseModal />
+
+      {/* Configuration Setup Modal on First Entry */}
+      <MatchSetupModal isOpen={isMatchSetupModalOpen} onClose={() => setIsMatchSetupModalOpen(false)} />
+    </div>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isSetupOpen, setIsSetupOpen] = useState(true);
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -41,32 +74,7 @@ export default function Home() {
 
   return (
     <LineupProvider>
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
-        <Header />
-        
-        {/* Main Workspace */}
-        <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-[1600px] w-full mx-auto">
-          {/* Pitch Area */}
-          <div className="flex-1 flex flex-col gap-4">
-            <Toolbar />
-            <Pitch />
-            <SubstitutesBench />
-            <QuickStats />
-          </div>
-
-          {/* Sidebar Controls */}
-          <div className="w-full lg:w-[380px] flex flex-col gap-6">
-            <TeamSettings />
-            <PlayerDetailsEditor />
-          </div>
-        </main>
-
-        {/* Create New Phase Modal */}
-        <NewPhaseModal />
-
-        {/* Configuration Setup Modal on First Entry */}
-        <MatchSetupModal isOpen={isSetupOpen} onClose={() => setIsSetupOpen(false)} />
-      </div>
+      <HomeContent />
     </LineupProvider>
   );
 }

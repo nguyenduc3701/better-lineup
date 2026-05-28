@@ -35,6 +35,8 @@ interface LineupContextType {
   setSelectedPlayerId: (id: string | null) => void;
   isNewPhaseModalOpen: boolean;
   setIsNewPhaseModalOpen: (open: boolean) => void;
+  isMatchSetupModalOpen: boolean;
+  setIsMatchSetupModalOpen: (open: boolean) => void;
   newPhaseNameInput: string;
   setNewPhaseNameInput: (name: string) => void;
   newPhaseCategoryInput: "Attack" | "Defence" | "Custom";
@@ -110,6 +112,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
   const [isNewPhaseModalOpen, setIsNewPhaseModalOpen] = useState(false);
+  const [isMatchSetupModalOpen, setIsMatchSetupModalOpen] = useState(true);
   const [newPhaseNameInput, setNewPhaseNameInput] = useState("");
   const [newPhaseCategoryInput, setNewPhaseCategoryInput] = useState<"Attack" | "Defence" | "Custom">("Attack");
   const [newPhaseError, setNewPhaseError] = useState<string | null>(null);
@@ -1550,6 +1553,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSelectedPlayerId,
         isNewPhaseModalOpen,
         setIsNewPhaseModalOpen,
+        isMatchSetupModalOpen,
+        setIsMatchSetupModalOpen,
         newPhaseNameInput,
         setNewPhaseNameInput,
         newPhaseCategoryInput,

@@ -54,6 +54,17 @@ export default function MatchSetupModal({ isOpen, onClose }: MatchSetupModalProp
         {/* Glow effect */}
         <div className="absolute -top-12 -left-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800 cursor-pointer"
+          title="Đóng"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+
         <h2 className="text-lg font-black text-slate-100 mb-1">Cấu hình Sa bàn chiến thuật</h2>
         <p className="text-xs text-slate-400 mb-6">Chọn loại sân đấu và các đội bóng tham gia trước khi khởi tạo sơ đồ</p>
 
@@ -152,17 +163,26 @@ export default function MatchSetupModal({ isOpen, onClose }: MatchSetupModalProp
           </div>
         )}
 
-        {/* Start Button */}
-        <button
-          type="button"
-          onClick={handleStart}
-          className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm py-2.5 rounded-xl shadow-lg shadow-emerald-500/5 cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] transition-all"
-        >
-          <span>Khởi tạo Sa bàn</span>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-          </svg>
-        </button>
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs py-2.5 rounded-xl cursor-pointer flex items-center justify-center transition-all"
+          >
+            Hủy bỏ
+          </button>
+          <button
+            type="button"
+            onClick={handleStart}
+            className="flex-[2] bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-2.5 rounded-xl shadow-lg shadow-emerald-500/5 cursor-pointer flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-[0.99] transition-all"
+          >
+            <span>Khởi tạo Sa bàn</span>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

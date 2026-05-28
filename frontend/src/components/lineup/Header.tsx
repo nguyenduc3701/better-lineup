@@ -14,7 +14,8 @@ export default function Header() {
     animationState,
     startAnimation,
     phases,
-    getOrderedPhaseNames
+    getOrderedPhaseNames,
+    setIsMatchSetupModalOpen
   } = useLineup();
 
   const [userName, setUserName] = useState<string>("");
@@ -137,6 +138,19 @@ export default function Header() {
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tài khoản</span>
               <span className="text-xs font-semibold text-slate-300">{userName}</span>
             </div>
+            
+            {/* Re-select Match Settings Button */}
+            <button
+              onClick={() => setIsMatchSetupModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer flex items-center gap-1.5 border border-emerald-500/20 text-xs font-semibold"
+              title="Thiết lập lại sa bàn"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+              </svg>
+              <span>Chọn lại</span>
+            </button>
+
             <button
               onClick={handleLogout}
               className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-all cursor-pointer flex items-center justify-center"
