@@ -55,7 +55,7 @@ interface LineupContextType {
   draggingDraftControlPlayerId: React.MutableRefObject<string | null>;
   
   getOrderedPhaseNames: (currentPhasesMap: Record<string, PhaseData>) => string[];
-  getOppositePhaseName: (pName: string) => string;
+
   propagatePositions: (currentPhasesMap: Record<string, PhaseData>) => Record<string, PhaseData>;
   getMergedPlayersForEditing: (phaseName: string, activeTab: "A" | "B", phasesMap: Record<string, PhaseData>) => Player[];
   savePlayersToPhases: (updatedPlayers: Player[], phaseName: string, activeTab: "A" | "B", currentPhases: Record<string, PhaseData>) => Record<string, PhaseData>;
@@ -107,7 +107,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [isNewPhaseModalOpen, setIsNewPhaseModalOpen] = useState(false);
   const [newPhaseNameInput, setNewPhaseNameInput] = useState("");
-  const [newPhaseCategoryInput, setNewPhaseCategoryInput] = useState<"Attack" | "Defence" | "Custom">("Attack");
+  const [newPhaseCategoryInput, setNewPhaseCategoryInput] = useState<"Attack" | "Defence" | "Custom">("Custom");
   const [newPhaseError, setNewPhaseError] = useState<string | null>(null);
   const [showTeamMotions, setShowTeamMotions] = useState(false);
 
@@ -273,44 +273,6 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
-  const getOppositePhaseName = useCallback((pName: string) => {
-    if (pName === "Starting Lineup") return "Starting Lineup";
-
-    const directMap: Record<string, string> = {
-      "1. Build-up": "1. Pressing",
-      "2. Progression": "2. Mid-block",
-      "3. Finishing": "3. Deep Defence",
-      "1. Pressing": "1. Build-up",
-      "2. Mid-block": "2. Progression",
-      "3. Deep Defence": "3. Finishing"
-    };
-
-    if (directMap[pName] && phases[directMap[pName]]) {
-      return directMap[pName];
-    }
-
-    const order = getOrderedPhaseNames(phases);
-    const attackPhases = order.filter(name => phases[name]?.category === "Attack");
-    const defencePhases = order.filter(name => phases[name]?.category === "Defence");
-
-    const currentPhase = phases[pName];
-    if (!currentPhase) return pName;
-
-    if (currentPhase.category === "Attack") {
-      const idx = attackPhases.indexOf(pName);
-      if (defencePhases.length === 0) return pName;
-      const targetIdx = Math.min(idx, defencePhases.length - 1);
-      return defencePhases[targetIdx];
-    } else if (currentPhase.category === "Defence") {
-      const idx = defencePhases.indexOf(pName);
-      if (attackPhases.length === 0) return pName;
-      const targetIdx = Math.min(idx, attackPhases.length - 1);
-      return attackPhases[targetIdx];
-    }
-
-    return pName;
-  }, [phases, getOrderedPhaseNames]);
-
   const propagatePositions = useCallback((currentPhasesMap: Record<string, PhaseData>): Record<string, PhaseData> => {
     const updated = { ...currentPhasesMap };
 
@@ -327,13 +289,13 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const lineupPhase = updated["Starting Lineup"];
     if (!lineupPhase) return updated;
 
-    const propagateChain = (chain: string[]) => {
+    const propagateChain = (chain: string[], initialPrevPhase: string = "Starting Lineup") => {
       for (let i = 0; i < chain.length; i++) {
         const currPhaseName = chain[i];
         const currPhase = updated[currPhaseName];
         if (!currPhase) continue;
 
-        const prevPhaseName = i === 0 ? "Starting Lineup" : chain[i - 1];
+        const prevPhaseName = i === 0 ? initialPrevPhase : chain[i - 1];
         const prevPhase = updated[prevPhaseName];
         if (!prevPhase) continue;
 
@@ -370,7 +332,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const defenceChain = order.filter(name => updated[name]?.category === "Defence" && name !== "Starting Lineup");
 
     propagateChain(attackChain);
-    propagateChain(defenceChain);
+    
+    const lastAttackPhase = attackChain.length > 0 ? attackChain[attackChain.length - 1] : "Starting Lineup";
+    propagateChain(defenceChain, lastAttackPhase);
 
     const customChain = order.filter(name => updated[name]?.category === "Custom" && name !== "Starting Lineup");
     propagateChain(customChain);
@@ -386,41 +350,15 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const targetPhase = phasesMap[phaseName];
     if (!targetPhase) return [];
 
-    const oppositePhaseName = getOppositePhaseName(phaseName);
-    const oppPhase = phasesMap[oppositePhaseName] || targetPhase;
-
     return targetPhase.players.map((p) => {
-      if (targetPhase.category === "Custom") {
-        return JSON.parse(JSON.stringify(p));
+      const copy = JSON.parse(JSON.stringify(p));
+      if (copy.motion && phaseName !== "Starting Lineup") {
+        copy.x = copy.motion.end.x;
+        copy.y = copy.motion.end.y;
       }
-
-      if (targetPhase.category === "Attack") {
-        const rawPlayer = p.team === "A"
-          ? p
-          : (oppPhase.players.find((op) => op.id === p.id) || p);
-        const copy = JSON.parse(JSON.stringify(rawPlayer));
-        if (copy.motion) {
-          copy.x = copy.motion.end.x;
-          copy.y = copy.motion.end.y;
-        }
-        return copy;
-      }
-
-      if (targetPhase.category === "Defence") {
-        const rawPlayer = p.team === "B"
-          ? p
-          : (oppPhase.players.find((op) => op.id === p.id) || p);
-        const copy = JSON.parse(JSON.stringify(rawPlayer));
-        if (copy.motion) {
-          copy.x = copy.motion.end.x;
-          copy.y = copy.motion.end.y;
-        }
-        return copy;
-      }
-
-      return JSON.parse(JSON.stringify(p));
+      return copy;
     });
-  }, [getOppositePhaseName]);
+  }, []);
 
   const adjustPlayerMotionAndPosition = useCallback((currP: Player, prevP: Player | undefined): Player => {
     if (!prevP) return currP;
@@ -477,10 +415,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     activeTab: "A" | "B",
     currentPhases: Record<string, PhaseData>
   ): Record<string, PhaseData> => {
-    const oppPhaseName = getOppositePhaseName(phaseName);
     const targetPhase = currentPhases[phaseName];
-    const oppPhase = currentPhases[oppPhaseName];
-    
     if (!targetPhase) return currentPhases;
 
     const order = getOrderedPhaseNames(currentPhases);
@@ -489,68 +424,26 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const prevTargetPhaseName = targetIdx > 0 ? targetChain[targetIdx - 1] : null;
     const prevTargetPhase = prevTargetPhaseName ? currentPhases[prevTargetPhaseName] : null;
 
-    const isCustom = targetPhase.category === "Custom";
-    const targetTeam = targetPhase.category === "Attack" ? "A" : "B";
-
     const nextTargetPlayers = targetPhase.players.map((p) => {
-      if (isCustom || p.team === targetTeam) {
-        const match = updatedPlayers.find((up) => up.id === p.id);
-        if (!match) return p;
+      const match = updatedPlayers.find((up) => up.id === p.id);
+      if (!match) return p;
 
-        if (phaseName === "Starting Lineup" || !prevTargetPhase || match.isGoalkeeper) {
-          return JSON.parse(JSON.stringify(match));
-        }
-
-        const prevP = prevTargetPhase.players.find(prev => prev.id === p.id);
-        return adjustPlayerMotionAndPosition(match, prevP);
+      if (phaseName === "Starting Lineup" || !prevTargetPhase || match.isGoalkeeper) {
+        return JSON.parse(JSON.stringify(match));
       }
-      return p;
+
+      const prevP = prevTargetPhase.players.find(prev => prev.id === p.id);
+      return adjustPlayerMotionAndPosition(match, prevP);
     });
 
-    let nextOppPlayers = oppPhase ? oppPhase.players : [];
-    if (oppPhase && oppPhaseName !== phaseName) {
-      const oppChain = order.filter(name => currentPhases[name]?.category === oppPhase.category || name === "Starting Lineup");
-      const oppIdx = oppChain.indexOf(oppPhaseName);
-      const prevOppPhaseName = oppIdx > 0 ? oppChain[oppIdx - 1] : null;
-      const prevOppPhase = prevOppPhaseName ? currentPhases[prevOppPhaseName] : null;
-
-      const oppTeam = targetTeam === "A" ? "B" : "A";
-
-      nextOppPlayers = oppPhase.players.map((p) => {
-        if (p.team === oppTeam) {
-          const match = updatedPlayers.find((up) => up.id === p.id);
-          if (!match) return p;
-
-          if (oppPhaseName === "Starting Lineup" || !prevOppPhase || match.isGoalkeeper) {
-            return JSON.parse(JSON.stringify(match));
-          }
-
-          const prevP = prevOppPhase.players.find(prev => prev.id === p.id);
-          return adjustPlayerMotionAndPosition(match, prevP);
-        }
-        return p;
-      });
-    }
-
-    let nextPhases = {
+    return {
       ...currentPhases,
       [phaseName]: {
         ...targetPhase,
         players: nextTargetPlayers
       }
     };
-
-    if (oppPhase && oppPhaseName !== phaseName) {
-      nextPhases = {
-        ...nextPhases,
-        [oppPhaseName]: {
-          ...oppPhase,
-          players: nextOppPlayers
-        }
-      };
-    }
-    return nextPhases;
-  }, [getOppositePhaseName, getOrderedPhaseNames, adjustPlayerMotionAndPosition]);
+  }, [getOrderedPhaseNames, adjustPlayerMotionAndPosition]);
 
   const saveAndPropagate = useCallback((nextPlayers: Player[]) => {
     setPhases(currentPhases => {
@@ -580,7 +473,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (newPhaseName === "CREATE_NEW") {
       setIsNewPhaseModalOpen(true);
       setNewPhaseNameInput("");
-      setNewPhaseCategoryInput("Attack");
+      setNewPhaseCategoryInput("Custom");
       setNewPhaseError(null);
       return;
     }
@@ -761,7 +654,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const phaseName = animPhasesList.current[currentAnimPhaseIndex.current];
     const isLineup = phaseName === "Starting Lineup";
     const duration = isLineup ? 1000 : 2000;
-    const startTime = performance.now();
+    let startTime: number | null = null;
 
     const targetPhase = phasesRef.current[phaseName];
     const isAttack = targetPhase?.category === "Attack";
@@ -791,8 +684,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const animate = (time: number) => {
+      if (startTime === null) startTime = time;
       const elapsed = time - startTime;
-      const progress = Math.min(1, elapsed / duration);
+      const progress = Math.max(0, Math.min(1, elapsed / duration));
 
       const easeT = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 
@@ -886,38 +780,16 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const oppositePhaseName = getOppositePhaseName(phaseName);
     const targetPhase = activePhases[phaseName];
-    const oppPhase = activePhases[oppositePhaseName] || targetPhase;
     if (!targetPhase) {
       setAnimationState("finished");
       return;
     }
 
-    const isAttack = targetPhase.category === "Attack";
-    const isDefence = targetPhase.category === "Defence";
+    setFormationA(targetPhase.formationA);
+    setFormationB(targetPhase.formationB);
 
-    if (isAttack) {
-      setFormationA(targetPhase.formationA);
-      setFormationB(oppPhase.formationB);
-    } else if (isDefence) {
-      setFormationA(oppPhase.formationA);
-      setFormationB(targetPhase.formationB);
-    } else {
-      setFormationA(targetPhase.formationA);
-      setFormationB(targetPhase.formationB);
-    }
-
-    const activeTeam = isDefence ? "B" : "A";
-
-    const mergedPlayers = targetPhase.players.map((p) => {
-      if (targetPhase.category === "Custom" || p.team === activeTeam) {
-        return JSON.parse(JSON.stringify(p));
-      } else {
-        const oppPlayer = oppPhase.players.find((op) => op.id === p.id);
-        return oppPlayer ? JSON.parse(JSON.stringify(oppPlayer)) : JSON.parse(JSON.stringify(p));
-      }
-    });
+    const mergedPlayers = targetPhase.players.map((p) => JSON.parse(JSON.stringify(p)));
 
     setPlayers(mergedPlayers);
     setActivePhase(phaseName);
@@ -926,7 +798,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     animationTimeoutRef.current = setTimeout(() => {
       runSinglePhaseAnim(mergedPlayers);
     }, 200);
-  }, [getOppositePhaseName, runSinglePhaseAnim]);
+  }, [runSinglePhaseAnim]);
 
   useEffect(() => {
     playNextPhaseInSequenceRef.current = playNextPhaseInSequence;
@@ -1064,8 +936,12 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const playerId = draggingDraftControlPlayerId.current;
       setPlayers(prev =>
         prev.map(p => {
-          if (p.id !== playerId) return p;
-          return { ...p, motionDraftControl: { x: pctX, y: pctY } };
+          if (p.id !== playerId || !p.motionStart) return p;
+          const start = p.motionStart;
+          const end = { x: p.x, y: p.y };
+          const ctrlX = 2 * pctX - 0.5 * (start.x + end.x);
+          const ctrlY = 2 * pctY - 0.5 * (start.y + end.y);
+          return { ...p, motionDraftControl: { x: ctrlX, y: ctrlY } };
         })
       );
       return;
@@ -1076,11 +952,15 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setPlayers(prev =>
         prev.map(p => {
           if (p.id !== playerId || !p.motion) return p;
+          const start = p.motion.start;
+          const end = p.motion.end;
+          const ctrlX = 2 * pctX - 0.5 * (start.x + end.x);
+          const ctrlY = 2 * pctY - 0.5 * (start.y + end.y);
           return {
             ...p,
             motion: {
               ...p.motion,
-              control: { x: pctX, y: pctY }
+              control: { x: ctrlX, y: ctrlY }
             }
           };
         })
@@ -1425,17 +1305,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       setPhases(currentPhases => {
         const updated = savePlayersToPhases(nextPlayers, activePhase, activeConfigTab, currentPhases);
-        const oppPhaseName = getOppositePhaseName(activePhase);
         if (updated[activePhase]) {
           updated[activePhase] = {
             ...updated[activePhase],
-            formationA: nextFormationA,
-            formationB: nextFormationB
-          };
-        }
-        if (updated[oppPhaseName] && oppPhaseName !== activePhase) {
-          updated[oppPhaseName] = {
-            ...updated[oppPhaseName],
             formationA: nextFormationA,
             formationB: nextFormationB
           };
@@ -1445,7 +1317,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       return nextPlayers;
     });
-  }, [activePhase, activeConfigTab, formationA, formationB, savePlayersToPhases, getOppositePhaseName, propagatePositions]);
+  }, [activePhase, activeConfigTab, formationA, formationB, savePlayersToPhases, propagatePositions]);
 
   const handleColorChange = useCallback((team: "A" | "B", hexColor: string) => {
     if (team === "A") {
@@ -1535,20 +1407,36 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [saveAndPropagate]);
 
   const handleNameChange = useCallback((playerId: string, newName: string) => {
-    setPlayers(prev => {
-      const next = prev.map(p => (p.id === playerId ? { ...p, name: newName } : p));
-      saveAndPropagate(next);
-      return next;
+    setPhases(prevPhases => {
+      const updatedPhases = { ...prevPhases };
+      Object.keys(updatedPhases).forEach(phaseName => {
+        updatedPhases[phaseName] = {
+          ...updatedPhases[phaseName],
+          players: updatedPhases[phaseName].players.map(p => 
+            p.id === playerId ? { ...p, name: newName } : p
+          )
+        };
+      });
+      return updatedPhases;
     });
-  }, [saveAndPropagate]);
+    setPlayers(prev => prev.map(p => (p.id === playerId ? { ...p, name: newName } : p)));
+  }, []);
 
   const handleNumberChange = useCallback((playerId: string, newNumber: number) => {
-    setPlayers(prev => {
-      const next = prev.map(p => (p.id === playerId ? { ...p, number: newNumber } : p));
-      saveAndPropagate(next);
-      return next;
+    setPhases(prevPhases => {
+      const updatedPhases = { ...prevPhases };
+      Object.keys(updatedPhases).forEach(phaseName => {
+        updatedPhases[phaseName] = {
+          ...updatedPhases[phaseName],
+          players: updatedPhases[phaseName].players.map(p => 
+            p.id === playerId ? { ...p, number: newNumber } : p
+          )
+        };
+      });
+      return updatedPhases;
     });
-  }, [saveAndPropagate]);
+    setPlayers(prev => prev.map(p => (p.id === playerId ? { ...p, number: newNumber } : p)));
+  }, []);
 
   const handleToggleHighlight = useCallback((playerId: string) => {
     const currentPlayer = players.find(p => p.id === playerId);
@@ -1624,7 +1512,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         draggingDraftControlPlayerId,
         
         getOrderedPhaseNames,
-        getOppositePhaseName,
+
         propagatePositions,
         getMergedPlayersForEditing,
         savePlayersToPhases,

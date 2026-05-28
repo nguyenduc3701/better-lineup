@@ -329,6 +329,9 @@ export default function Pitch() {
             const motion = p.motion;
             const ctrlX = motion.control ? motion.control.x : (motion.start.x + motion.end.x) / 2;
             const ctrlY = motion.control ? motion.control.y : (motion.start.y + motion.end.y) / 2;
+
+            const midX = 0.25 * motion.start.x + 0.5 * ctrlX + 0.25 * motion.end.x;
+            const midY = 0.25 * motion.start.y + 0.5 * ctrlY + 0.25 * motion.end.y;
             
             handles.push(
               <div
@@ -339,8 +342,8 @@ export default function Pitch() {
                 }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-amber-500 border border-white cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-slate-950 select-none shadow hover:bg-amber-400"
                 style={{
-                  left: `${ctrlX}%`,
-                  top: `${ctrlY}%`,
+                  left: `${midX}%`,
+                  top: `${midY}%`,
                 }}
                 title={t.controlPointTip}
               >
@@ -353,6 +356,9 @@ export default function Pitch() {
           if (p.motionStart && p.motionDraftControl) {
             const ctrlX = p.motionDraftControl.x;
             const ctrlY = p.motionDraftControl.y;
+
+            const midX = 0.25 * p.motionStart.x + 0.5 * ctrlX + 0.25 * p.x;
+            const midY = 0.25 * p.motionStart.y + 0.5 * ctrlY + 0.25 * p.y;
             
             handles.push(
               <div
@@ -363,8 +369,8 @@ export default function Pitch() {
                 }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-amber-600 border border-red-500 cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-white select-none shadow animate-pulse"
                 style={{
-                  left: `${ctrlX}%`,
-                  top: `${ctrlY}%`,
+                  left: `${midX}%`,
+                  top: `${midY}%`,
                 }}
                 title={t.controlPointTip}
               >
