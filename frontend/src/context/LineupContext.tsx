@@ -790,141 +790,88 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    const playFinalShot = (moves: BallMove[], finalPlayers: Player[]) => {
-      const lastMove = moves[moves.length - 1];
-      const lastHolder = finalPlayers.find(p => p.id === lastMove.toPlayerId);
-      if (!lastHolder) {
-        playNext();
-        return;
-      }
-
-      const getPos = (p: Player) => {
-        if (p.motion) return p.motion.end;
-        return { x: p.x, y: p.y };
-      };
-
-      const startPos = getPos(lastHolder);
-      const targetGoalX = lastHolder.team === "A" ? 99 : 1;
-      const targetGoalY = 50;
-
-      const shotDuration = 600;
-      const shotStartTime = performance.now();
-
-      setBall({ x: startPos.x, y: startPos.y, attachedPlayerId: null });
-
-      const animateShot = (time: number) => {
-        const elapsed = time - shotStartTime;
-        const progress = Math.min(1, elapsed / shotDuration);
-
-        const x = startPos.x + (targetGoalX - startPos.x) * progress;
-        const y = startPos.y + (targetGoalY - startPos.y) * progress;
-
-        setBall(prev => ({ ...prev, x, y }));
-
-        if (progress < 1) {
-          ballAnimFrameRef.current = requestAnimationFrame(animateShot);
-        } else {
-          if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
-          playNextTimeoutRef.current = setTimeout(() => {
-            playNext();
-          }, 300);
-        }
-      };
-
-      ballAnimFrameRef.current = requestAnimationFrame(animateShot);
-    };
-
-    const animateBallMoves = (moves: BallMove[], finalPlayers: Player[], moveIndex: number) => {
-      if (moveIndex >= moves.length) {
-        if (isLastAttackPhase) {
-          playFinalShot(moves, finalPlayers);
-        } else {
-          playNext();
-        }
-        return;
-      }
-
-      const move = moves[moveIndex];
-      const fromPlayer = finalPlayers.find(p => p.id === move.fromPlayerId);
-      const toPlayer = finalPlayers.find(p => p.id === move.toPlayerId);
-
-      if (!fromPlayer || !toPlayer) {
-        animateBallMoves(moves, finalPlayers, moveIndex + 1);
-        return;
-      }
-
-      const getPos = (p: Player) => {
-        if (p.motion) return p.motion.end;
-        return { x: p.x, y: p.y };
-      };
-
-      const startPos = getPos(fromPlayer);
-      const endPos = getPos(toPlayer);
-
-      const passDuration = 800;
-      const passStartTime = performance.now();
-
-      setBall({ x: startPos.x, y: startPos.y, attachedPlayerId: null });
-
-      const animatePass = (time: number) => {
-        const elapsed = time - passStartTime;
-        const progress = Math.min(1, elapsed / passDuration);
-
-        const x = startPos.x + (endPos.x - startPos.x) * progress;
-        const y = startPos.y + (endPos.y - startPos.y) * progress;
-
-        setBall(prev => ({ ...prev, x, y }));
-
-        if (progress < 1) {
-          ballAnimFrameRef.current = requestAnimationFrame(animatePass);
-        } else {
-          setBall({ x: endPos.x, y: endPos.y, attachedPlayerId: toPlayer.id });
-
-          if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
-          playNextTimeoutRef.current = setTimeout(() => {
-            animateBallMoves(moves, finalPlayers, moveIndex + 1);
-          }, 150);
-        }
-      };
-
-      ballAnimFrameRef.current = requestAnimationFrame(animatePass);
-    };
-
     const animate = (time: number) => {
       const elapsed = time - startTime;
       const progress = Math.min(1, elapsed / duration);
 
       const easeT = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 
-      setPlayers(() =>
-        initialPhasePlayers.map((p) => {
-          if (!p.motion) return p;
+      // 1. Calculate player positions at the current timestamp
+      const currentPlayers = initialPhasePlayers.map((p) => {
+        if (!p.motion) return p;
 
-          const start = p.motion.start;
-          const ctrl = p.motion.control || {
-            x: (start.x + p.motion.end.x) / 2,
-            y: (start.y + p.motion.end.y) / 2,
-          };
-          const end = p.motion.end;
+        const start = p.motion.start;
+        const ctrl = p.motion.control || {
+          x: (start.x + p.motion.end.x) / 2,
+          y: (start.y + p.motion.end.y) / 2,
+        };
+        const end = p.motion.end;
 
-          const mt = 1 - easeT;
-          const x = mt * mt * start.x + 2 * mt * easeT * ctrl.x + easeT * easeT * end.x;
-          const y = mt * mt * start.y + 2 * mt * easeT * ctrl.y + easeT * easeT * end.y;
+        const mt = 1 - easeT;
+        const x = mt * mt * start.x + 2 * mt * easeT * ctrl.x + easeT * easeT * end.x;
+        const y = mt * mt * start.y + 2 * mt * easeT * ctrl.y + easeT * easeT * end.y;
 
-          return { ...p, x, y };
-        })
-      );
+        return { ...p, x, y };
+      });
+
+      setPlayers(currentPlayers);
+
+      // 2. Animate ball positions simultaneously
+      const ballMoves = (!isLineup && targetPhase) ? (targetPhase.ballMoves || []) : [];
+
+      if (ballMoves.length > 0) {
+        const totalSegments = ballMoves.length + (isLastAttackPhase ? 1 : 0);
+        const segmentSize = 1 / totalSegments;
+        const segmentIndex = Math.min(totalSegments - 1, Math.floor(progress / segmentSize));
+        const segmentProgress = (progress - (segmentIndex * segmentSize)) / segmentSize;
+
+        if (segmentIndex < ballMoves.length) {
+          const move = ballMoves[segmentIndex];
+          const fromPlayer = currentPlayers.find(p => p.id === move.fromPlayerId);
+          const toPlayer = currentPlayers.find(p => p.id === move.toPlayerId);
+
+          if (fromPlayer && toPlayer) {
+            const ballX = fromPlayer.x + (toPlayer.x - fromPlayer.x) * segmentProgress;
+            const ballY = fromPlayer.y + (toPlayer.y - fromPlayer.y) * segmentProgress;
+            setBall({ x: ballX, y: ballY, attachedPlayerId: null });
+          }
+        } else {
+          // Final shot segment
+          const lastMove = ballMoves[ballMoves.length - 1];
+          const lastHolder = currentPlayers.find(p => p.id === lastMove.toPlayerId);
+          if (lastHolder) {
+            const targetGoalX = lastHolder.team === "A" ? 99 : 1;
+            const targetGoalY = 50;
+            const ballX = lastHolder.x + (targetGoalX - lastHolder.x) * segmentProgress;
+            const ballY = lastHolder.y + (targetGoalY - lastHolder.y) * segmentProgress;
+            setBall({ x: ballX, y: ballY, attachedPlayerId: null });
+          }
+        }
+      }
 
       if (progress < 1) {
         animationFrameRef.current = requestAnimationFrame(animate);
       } else {
-        const targetPhase = phasesRef.current[phaseName];
-        const ballMoves = (!isLineup && targetPhase) ? (targetPhase.ballMoves || []) : [];
+        // Animation finished
         if (ballMoves.length > 0) {
-          animateBallMoves(ballMoves, initialPhasePlayers, 0);
-        } else {
-          playNext();
+          if (isLastAttackPhase) {
+            const lastMove = ballMoves[ballMoves.length - 1];
+            const lastHolder = currentPlayers.find(p => p.id === lastMove.toPlayerId);
+            const targetGoalX = lastHolder && lastHolder.team === "A" ? 99 : 1;
+            setBall({ x: targetGoalX, y: 50, attachedPlayerId: null });
+          } else {
+            const lastMove = ballMoves[ballMoves.length - 1];
+            const toPlayer = currentPlayers.find(p => p.id === lastMove.toPlayerId);
+            if (toPlayer) {
+              setBall({ x: toPlayer.x, y: toPlayer.y, attachedPlayerId: toPlayer.id });
+            }
+          }
         }
+        
+        if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+        playNextTimeoutRef.current = setTimeout(() => {
+          playNext();
+        }, 300);
       }
     };
 
