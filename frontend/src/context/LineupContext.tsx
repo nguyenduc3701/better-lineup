@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { translations, SupportedLang, Translations } from "../app/translations";
-import { Player, Formation, PhaseData, Motion } from "../types";
+import { Player, Formation, PhaseData, Motion, BallMove } from "../types";
 import { getFormationPositions } from "../utils/formation";
 import { DEFAULT_NAMES_A, DEFAULT_NAMES_B } from "../constants";
 
@@ -80,6 +80,10 @@ interface LineupContextType {
   handleNumberChange: (playerId: string, newNumber: number) => void;
   handleToggleHighlight: (playerId: string) => void;
   handleFormationChange: (team: "A" | "B", formation: Formation) => void;
+  // Ball pass feature
+  phaseBallMoves: BallMove[];
+  handleClearBallMoves: () => void;
+  MAX_BALL_MOVES: number;
 }
 
 const LineupContext = createContext<LineupContextType | undefined>(undefined);
@@ -107,7 +111,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [newPhaseError, setNewPhaseError] = useState<string | null>(null);
   const [showTeamMotions, setShowTeamMotions] = useState(false);
 
+  const MAX_BALL_MOVES = 10;
+
   const animationFrameRef = useRef<number | null>(null);
+  const ballAnimFrameRef = useRef<number | null>(null);
   const animationTimeoutRef = useRef<any>(null);
   const playNextTimeoutRef = useRef<any>(null);
   const startTimeoutRef = useRef<any>(null);
@@ -137,6 +144,39 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     attachedPlayerId: null
   });
   const draggingBall = useRef(false);
+
+  const phaseBallMoves = useMemo(() => {
+    const currentPhase = phases[activePhase];
+    return currentPhase?.ballMoves || [];
+  }, [phases, activePhase]);
+
+  const handleClearBallMoves = useCallback(() => {
+    setPhases(currentPhases => {
+      const currentPhase = currentPhases[activePhase];
+      if (!currentPhase) return currentPhases;
+      return {
+        ...currentPhases,
+        [activePhase]: {
+          ...currentPhase,
+          ballMoves: []
+        }
+      };
+    });
+  }, [activePhase]);
+
+  useEffect(() => {
+    if (ball.attachedPlayerId && !draggingBall.current) {
+      const holder = players.find(p => p.id === ball.attachedPlayerId);
+      if (holder) {
+        setBall(prev => {
+          if (prev.x !== holder.x || prev.y !== holder.y) {
+            return { ...prev, x: holder.x, y: holder.y };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [players, ball.attachedPlayerId]);
 
   // Initialize phases & players
   useEffect(() => {
@@ -196,7 +236,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       formationA: "4-4-2",
       formationB: "4-4-2",
       players: initialPlayers(),
-      category: "Custom"
+      category: "Custom",
+      ballMoves: []
     };
 
     ["1. Build-up", "2. Progression", "3. Finishing", "1. Pressing", "2. Mid-block", "3. Deep Defence"].forEach((phaseName) => {
@@ -210,7 +251,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         formationA: "4-4-2",
         formationB: "4-4-2",
         players: initialPlayers(),
-        category
+        category,
+        ballMoves: []
       };
     });
 
@@ -311,6 +353,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           return {
             ...currP,
+            // Propagate substitution & goalkeeper status from previous phase
+            // so that player swaps in earlier phases carry through to later phases
+            isSubstitute: prevP.isSubstitute,
+            isGoalkeeper: prevP.isGoalkeeper,
             x: prevEnd.x,
             y: prevEnd.y,
             motion: updatedMotion,
@@ -525,6 +571,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setActiveConfigTab(newTab);
       const merged = getMergedPlayersForEditing(activePhase, newTab, propagated);
       setPlayers(merged);
+      setSelectedPlayerId(null);
       return propagated;
     });
   }, [players, activePhase, activeConfigTab, savePlayersToPhases, propagatePositions, getMergedPlayersForEditing]);
@@ -550,10 +597,51 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setPlayers(merged);
         setActivePhase(newPhaseName);
         setSelectedPlayerId(null);
+
+        // Restore ball state for the new phase
+        if (newPhaseName !== "Starting Lineup") {
+          const moves = targetPhase.ballMoves || [];
+
+          if (moves.length > 0) {
+            // Ball is at the last recipient
+            const lastHolder = moves[moves.length - 1].toPlayerId;
+            const holderPlayer = merged.find(p => p.id === lastHolder);
+            if (holderPlayer) {
+              setBall({ x: holderPlayer.x, y: holderPlayer.y, attachedPlayerId: lastHolder });
+            }
+          } else {
+            // Scan backwards for a previous phase that has ball moves recorded
+            const ordered = getOrderedPhaseNames(propagated);
+            const currentIndex = ordered.indexOf(newPhaseName);
+            let foundHolderId: string | null = null;
+
+            for (let i = currentIndex - 1; i >= 0; i--) {
+              const prevPhaseName = ordered[i];
+              if (prevPhaseName === "Starting Lineup") continue;
+              const prevPhase = propagated[prevPhaseName];
+              if (prevPhase && prevPhase.ballMoves && prevPhase.ballMoves.length > 0) {
+                foundHolderId = prevPhase.ballMoves[prevPhase.ballMoves.length - 1].toPlayerId;
+                break;
+              }
+            }
+
+            const holderPlayer = foundHolderId ? merged.find(p => p.id === foundHolderId) : null;
+            if (holderPlayer) {
+              setBall({ x: holderPlayer.x, y: holderPlayer.y, attachedPlayerId: holderPlayer.id });
+            } else {
+              // Default to goalkeeper (e.g. if we are in "1. Build-up" or no prior moves exist)
+              const gk = merged.find(p => p.team === "A" && p.isGoalkeeper && !p.isSubstitute);
+              if (gk) {
+                setBall({ x: gk.x, y: gk.y, attachedPlayerId: gk.id });
+              }
+            }
+          }
+        }
       }
       return propagated;
     });
-  }, [players, activePhase, activeConfigTab, savePlayersToPhases, propagatePositions, getMergedPlayersForEditing]);
+  }, [players, activePhase, activeConfigTab, savePlayersToPhases, propagatePositions, getMergedPlayersForEditing, getOrderedPhaseNames]);
+
 
   const handleConfirmCreatePhase = useCallback(() => {
     const cleanName = newPhaseNameInput.trim();
@@ -579,7 +667,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           motionStart: null,
           motionDraftControl: null
         })),
-        category: newPhaseCategoryInput
+        category: newPhaseCategoryInput,
+        ballMoves: []
       };
 
       const withNewPhase = { ...updatedPhases, [cleanName]: newPhaseData };
@@ -604,6 +693,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+    if (ballAnimFrameRef.current) {
+      cancelAnimationFrame(ballAnimFrameRef.current);
+      ballAnimFrameRef.current = null;
     }
     if (animationTimeoutRef.current) {
       clearTimeout(animationTimeoutRef.current);
@@ -631,6 +724,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     setAnimationState("idle");
   }, [phases]);
+
 
   const resetPlayersPositions = useCallback(() => {
     const target = phases["Starting Lineup"];
@@ -661,9 +755,140 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    const isLineup = animPhasesList.current[currentAnimPhaseIndex.current] === "Starting Lineup";
+    if (ballAnimFrameRef.current) {
+      cancelAnimationFrame(ballAnimFrameRef.current);
+    }
+    const phaseName = animPhasesList.current[currentAnimPhaseIndex.current];
+    const isLineup = phaseName === "Starting Lineup";
     const duration = isLineup ? 1000 : 2000;
     const startTime = performance.now();
+
+    const targetPhase = phasesRef.current[phaseName];
+    const isAttack = targetPhase?.category === "Attack";
+    let isLastAttackPhase = false;
+    if (isAttack) {
+      isLastAttackPhase = true;
+      for (let i = currentAnimPhaseIndex.current + 1; i < animPhasesList.current.length; i++) {
+        const nextPhaseName = animPhasesList.current[i];
+        const nextPhase = phasesRef.current[nextPhaseName];
+        if (nextPhase && nextPhase.category === "Attack") {
+          isLastAttackPhase = false;
+          break;
+        }
+      }
+    }
+
+    const playNext = () => {
+      if (animPhasesList.current.length > 1 && currentAnimPhaseIndex.current < animPhasesList.current.length - 1) {
+        currentAnimPhaseIndex.current += 1;
+        if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+        playNextTimeoutRef.current = setTimeout(() => {
+          playNextPhaseInSequenceRef.current?.();
+        }, 450);
+      } else {
+        setAnimationState("finished");
+      }
+    };
+
+    const playFinalShot = (moves: BallMove[], finalPlayers: Player[]) => {
+      const lastMove = moves[moves.length - 1];
+      const lastHolder = finalPlayers.find(p => p.id === lastMove.toPlayerId);
+      if (!lastHolder) {
+        playNext();
+        return;
+      }
+
+      const getPos = (p: Player) => {
+        if (p.motion) return p.motion.end;
+        return { x: p.x, y: p.y };
+      };
+
+      const startPos = getPos(lastHolder);
+      const targetGoalX = lastHolder.team === "A" ? 99 : 1;
+      const targetGoalY = 50;
+
+      const shotDuration = 600;
+      const shotStartTime = performance.now();
+
+      setBall({ x: startPos.x, y: startPos.y, attachedPlayerId: null });
+
+      const animateShot = (time: number) => {
+        const elapsed = time - shotStartTime;
+        const progress = Math.min(1, elapsed / shotDuration);
+
+        const x = startPos.x + (targetGoalX - startPos.x) * progress;
+        const y = startPos.y + (targetGoalY - startPos.y) * progress;
+
+        setBall(prev => ({ ...prev, x, y }));
+
+        if (progress < 1) {
+          ballAnimFrameRef.current = requestAnimationFrame(animateShot);
+        } else {
+          if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+          playNextTimeoutRef.current = setTimeout(() => {
+            playNext();
+          }, 300);
+        }
+      };
+
+      ballAnimFrameRef.current = requestAnimationFrame(animateShot);
+    };
+
+    const animateBallMoves = (moves: BallMove[], finalPlayers: Player[], moveIndex: number) => {
+      if (moveIndex >= moves.length) {
+        if (isLastAttackPhase) {
+          playFinalShot(moves, finalPlayers);
+        } else {
+          playNext();
+        }
+        return;
+      }
+
+      const move = moves[moveIndex];
+      const fromPlayer = finalPlayers.find(p => p.id === move.fromPlayerId);
+      const toPlayer = finalPlayers.find(p => p.id === move.toPlayerId);
+
+      if (!fromPlayer || !toPlayer) {
+        animateBallMoves(moves, finalPlayers, moveIndex + 1);
+        return;
+      }
+
+      const getPos = (p: Player) => {
+        if (p.motion) return p.motion.end;
+        return { x: p.x, y: p.y };
+      };
+
+      const startPos = getPos(fromPlayer);
+      const endPos = getPos(toPlayer);
+
+      const passDuration = 800;
+      const passStartTime = performance.now();
+
+      setBall({ x: startPos.x, y: startPos.y, attachedPlayerId: null });
+
+      const animatePass = (time: number) => {
+        const elapsed = time - passStartTime;
+        const progress = Math.min(1, elapsed / passDuration);
+
+        const x = startPos.x + (endPos.x - startPos.x) * progress;
+        const y = startPos.y + (endPos.y - startPos.y) * progress;
+
+        setBall(prev => ({ ...prev, x, y }));
+
+        if (progress < 1) {
+          ballAnimFrameRef.current = requestAnimationFrame(animatePass);
+        } else {
+          setBall({ x: endPos.x, y: endPos.y, attachedPlayerId: toPlayer.id });
+
+          if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+          playNextTimeoutRef.current = setTimeout(() => {
+            animateBallMoves(moves, finalPlayers, moveIndex + 1);
+          }, 150);
+        }
+      };
+
+      ballAnimFrameRef.current = requestAnimationFrame(animatePass);
+    };
 
     const animate = (time: number) => {
       const elapsed = time - startTime;
@@ -693,18 +918,13 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (progress < 1) {
         animationFrameRef.current = requestAnimationFrame(animate);
       } else {
-        const playNext = () => {
-          if (animPhasesList.current.length > 1 && currentAnimPhaseIndex.current < animPhasesList.current.length - 1) {
-            currentAnimPhaseIndex.current += 1;
-            if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
-            playNextTimeoutRef.current = setTimeout(() => {
-              playNextPhaseInSequenceRef.current?.();
-            }, 450);
-          } else {
-            setAnimationState("finished");
-          }
-        };
-        playNext();
+        const targetPhase = phasesRef.current[phaseName];
+        const ballMoves = (!isLineup && targetPhase) ? (targetPhase.ballMoves || []) : [];
+        if (ballMoves.length > 0) {
+          animateBallMoves(ballMoves, initialPhasePlayers, 0);
+        } else {
+          playNext();
+        }
       }
     };
 
@@ -727,11 +947,24 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    setFormationA(activeConfigTabRef.current === "A" ? targetPhase.formationA : oppPhase.formationA);
-    setFormationB(activeConfigTabRef.current === "B" ? targetPhase.formationB : oppPhase.formationB);
+    const isAttack = targetPhase.category === "Attack";
+    const isDefence = targetPhase.category === "Defence";
+
+    if (isAttack) {
+      setFormationA(targetPhase.formationA);
+      setFormationB(oppPhase.formationB);
+    } else if (isDefence) {
+      setFormationA(oppPhase.formationA);
+      setFormationB(targetPhase.formationB);
+    } else {
+      setFormationA(targetPhase.formationA);
+      setFormationB(targetPhase.formationB);
+    }
+
+    const activeTeam = isDefence ? "B" : "A";
 
     const mergedPlayers = targetPhase.players.map((p) => {
-      if (p.team === activeConfigTabRef.current) {
+      if (targetPhase.category === "Custom" || p.team === activeTeam) {
         return JSON.parse(JSON.stringify(p));
       } else {
         const oppPlayer = oppPhase.players.find((op) => op.id === p.id);
@@ -763,55 +996,58 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    setPhases(currentPhases => {
-      const updatedPhases = savePlayersToPhases(players, activePhase, activeConfigTab, currentPhases);
-      const propagated = propagatePositions(updatedPhases);
+    // Compute propagated phases OUTSIDE the setPhases updater.
+    // Using phasesRef.current ensures we get the latest phases without
+    // calling setState inside another setState updater (React anti-pattern
+    // that causes double-invocation in Strict Mode, breaking the animation).
+    const updatedPhases = savePlayersToPhases(players, activePhase, activeConfigTab, phasesRef.current);
+    const propagated = propagatePositions(updatedPhases);
 
-      savedBasePlayers.current = JSON.parse(JSON.stringify(players));
-      savedActivePhaseBeforeAnim.current = activePhase;
-      
-      if (playMode === "ALL") {
-        const attackList = ["1. Build-up", "2. Progression", "3. Finishing"];
-        const defenceList = ["1. Pressing", "2. Mid-block", "3. Deep Defence"];
-        animPhasesList.current = ["Starting Lineup", ...attackList, ...defenceList];
-        currentAnimPhaseIndex.current = 0;
-      } else if (playMode === "GROUP_Attack") {
-        const list = getOrderedPhaseNames(propagated).filter(
-          name => propagated[name]?.category === "Attack"
-        );
-        animPhasesList.current = ["Starting Lineup", ...list];
-        currentAnimPhaseIndex.current = 0;
-      } else if (playMode === "GROUP_Defence") {
-        const list = getOrderedPhaseNames(propagated).filter(
-          name => propagated[name]?.category === "Defence"
-        );
-        animPhasesList.current = ["Starting Lineup", ...list];
-        currentAnimPhaseIndex.current = 0;
-      } else if (playMode === "GROUP_Custom") {
-        const list = getOrderedPhaseNames(propagated).filter(
-          name => propagated[name]?.category === "Custom"
-        );
-        animPhasesList.current = ["Starting Lineup", ...list];
-        currentAnimPhaseIndex.current = 0;
+    savedBasePlayers.current = JSON.parse(JSON.stringify(players));
+    savedActivePhaseBeforeAnim.current = activePhase;
+
+    if (playMode === "ALL") {
+      const attackList = ["1. Build-up", "2. Progression", "3. Finishing"];
+      const defenceList = ["1. Pressing", "2. Mid-block", "3. Deep Defence"];
+      animPhasesList.current = ["Starting Lineup", ...attackList, ...defenceList];
+      currentAnimPhaseIndex.current = 0;
+    } else if (playMode === "GROUP_Attack") {
+      const list = getOrderedPhaseNames(propagated).filter(
+        name => propagated[name]?.category === "Attack"
+      );
+      animPhasesList.current = ["Starting Lineup", ...list];
+      currentAnimPhaseIndex.current = 0;
+    } else if (playMode === "GROUP_Defence") {
+      const list = getOrderedPhaseNames(propagated).filter(
+        name => propagated[name]?.category === "Defence"
+      );
+      animPhasesList.current = ["Starting Lineup", ...list];
+      currentAnimPhaseIndex.current = 0;
+    } else if (playMode === "GROUP_Custom") {
+      const list = getOrderedPhaseNames(propagated).filter(
+        name => propagated[name]?.category === "Custom"
+      );
+      animPhasesList.current = ["Starting Lineup", ...list];
+      currentAnimPhaseIndex.current = 0;
+    } else {
+      if (playMode === "Starting Lineup") {
+        animPhasesList.current = ["Starting Lineup"];
       } else {
-        if (playMode === "Starting Lineup") {
-          animPhasesList.current = ["Starting Lineup"];
-        } else {
-          animPhasesList.current = ["Starting Lineup", playMode];
-        }
-        currentAnimPhaseIndex.current = 0;
+        animPhasesList.current = ["Starting Lineup", playMode];
       }
+      currentAnimPhaseIndex.current = 0;
+    }
 
-      setAnimationState("playing");
-      
-      // Schedule call to playNextPhaseInSequence
-      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
-      startTimeoutRef.current = setTimeout(() => {
-        playNextPhaseInSequence(propagated);
-      }, 0);
+    // Update phases state (plain value, not functional updater — no side effects inside)
+    setPhases(propagated);
 
-      return propagated;
-    });
+    // Set animation state and schedule first phase — OUTSIDE the setPhases updater
+    setAnimationState("playing");
+
+    if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+    startTimeoutRef.current = setTimeout(() => {
+      playNextPhaseInSequence(propagated);
+    }, 0);
   }, [animationState, players, activePhase, activeConfigTab, playMode, savePlayersToPhases, propagatePositions, getOrderedPhaseNames, playNextPhaseInSequence, stopAndResetAnimation, resetPlayersPositions]);
 
   useEffect(() => {
@@ -826,19 +1062,19 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const handleMouseDown = useCallback((playerId: string) => {
+    const player = players.find(p => p.id === playerId);
+    if (!player || player.team !== activeConfigTab) return;
+
     setSelectedPlayerId(playerId);
     
-    const player = players.find(p => p.id === playerId);
-    if (player) {
-      if (player.isGoalkeeper) return;
-      draggingPlayerId.current = playerId;
-      initialDragState.current = {
-        x: player.x,
-        y: player.y,
-        motion: player.motion ? JSON.parse(JSON.stringify(player.motion)) : null,
-      };
-    }
-  }, [players]);
+    if (player.isGoalkeeper) return;
+    draggingPlayerId.current = playerId;
+    initialDragState.current = {
+      x: player.x,
+      y: player.y,
+      motion: player.motion ? JSON.parse(JSON.stringify(player.motion)) : null,
+    };
+  }, [players, activeConfigTab]);
 
   const handleControlPointMouseDown = useCallback((playerId: string, motionId: string) => {
     draggingControlPoint.current = { playerId, motionId };
@@ -945,6 +1181,17 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (draggingBall.current) {
       draggingBall.current = false;
+
+      // Ball interaction is disabled in Starting Lineup
+      if (activePhase === "Starting Lineup") {
+        // Snap ball back to its attached player (if any)
+        if (ball.attachedPlayerId) {
+          const holder = players.find(p => p.id === ball.attachedPlayerId);
+          if (holder) setBall(prev => ({ ...prev, x: holder.x, y: holder.y }));
+        }
+        return;
+      }
+
       const dropX = ball.x;
       const dropY = ball.y;
       
@@ -953,15 +1200,41 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         Math.sqrt(Math.pow(p.x - dropX, 2) + Math.pow(p.y - dropY, 2)) < 5.0
       );
 
-      if (activePlayerNear) {
-        setBall(prev => ({
-          ...prev,
+      if (activePlayerNear && activePlayerNear.id !== ball.attachedPlayerId) {
+        const fromPlayerId = ball.attachedPlayerId;
+
+        setBall({
           attachedPlayerId: activePlayerNear.id,
           x: activePlayerNear.x,
           y: activePlayerNear.y
-        }));
+        });
+
+        // Record ball move if coming from another player and under limit
+        if (fromPlayerId) {
+          setPhases(currentPhases => {
+            const phase = currentPhases[activePhase];
+            if (!phase) return currentPhases;
+            const existingMoves = phase.ballMoves || [];
+            if (existingMoves.length >= MAX_BALL_MOVES) return currentPhases;
+            const newMove: BallMove = {
+              id: Math.random().toString(36).substring(2, 9),
+              fromPlayerId,
+              toPlayerId: activePlayerNear.id
+            };
+            return {
+              ...currentPhases,
+              [activePhase]: {
+                ...phase,
+                ballMoves: [...existingMoves, newMove]
+              }
+            };
+          });
+        }
+      } else if (!activePlayerNear) {
+        setBall(prev => ({ ...prev, attachedPlayerId: null }));
       }
     }
+
     
     if (draggingPlayerId.current) {
       const draggedId = draggingPlayerId.current;
@@ -1331,15 +1604,27 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [saveAndPropagate]);
 
   const handleToggleHighlight = useCallback((playerId: string) => {
-    setPlayers(prev => {
-      const next = prev.map(p => {
-        if (p.id !== playerId) return p;
-        return { ...p, isHighlighted: !p.isHighlighted };
-      });
-      saveAndPropagate(next);
-      return next;
+    const currentPlayer = players.find(p => p.id === playerId);
+    if (!currentPlayer || currentPlayer.team !== activeConfigTab) return;
+    const newHighlighted = !currentPlayer.isHighlighted;
+
+    setPlayers(prev => prev.map(p =>
+      p.id === playerId ? { ...p, isHighlighted: newHighlighted } : p
+    ));
+
+    setPhases(currentPhases => {
+      const updated: Record<string, PhaseData> = {};
+      for (const phaseName of Object.keys(currentPhases)) {
+        updated[phaseName] = {
+          ...currentPhases[phaseName],
+          players: currentPhases[phaseName].players.map(p =>
+            p.id === playerId ? { ...p, isHighlighted: newHighlighted } : p
+          )
+        };
+      }
+      return updated;
     });
-  }, [saveAndPropagate]);
+  }, [players, activeConfigTab]);
 
   return (
     <LineupContext.Provider
@@ -1416,7 +1701,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         handleNameChange,
         handleNumberChange,
         handleToggleHighlight,
-        handleFormationChange
+        handleFormationChange,
+        phaseBallMoves,
+        handleClearBallMoves,
+        MAX_BALL_MOVES
       }}
     >
       {children}

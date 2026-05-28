@@ -245,23 +245,21 @@ export default function Pitch() {
           </div>
         )}
 
-        {/* Render Free Ball if not attached */}
-        {!ball.attachedPlayerId && (
-          <div
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              draggingBall.current = true;
-            }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-20 select-none touch-none w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] hover:scale-125 transition-transform text-lg sm:text-xl"
-            style={{
-              left: `${ball.x}%`,
-              top: `${ball.y}%`,
-            }}
-            title={t.ballTooltip}
-          >
-            ⚽
-          </div>
-        )}
+        {/* Render Ball */}
+        <div
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            draggingBall.current = true;
+          }}
+          className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-20 select-none touch-none w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] hover:scale-125 transition-transform text-lg sm:text-xl"
+          style={{
+            left: `${ball.x}%`,
+            top: `${ball.y}%`,
+          }}
+          title={t.ballTooltip}
+        >
+          ⚽
+        </div>
 
         {/* Render Players */}
         {players.filter(p => !p.isSubstitute || draggingPlayerId.current === p.id).map((player) => {
@@ -304,25 +302,6 @@ export default function Pitch() {
                   backgroundColor: player.isHighlighted ? "#facc15" : color 
                 }}
               >
-                {/* Ball Indicator (Bottom Right) */}
-                {ball.attachedPlayerId === player.id && (
-                  <div 
-                    className="absolute bottom-[-6px] right-[-6px] z-40 flex items-center gap-0.5 bg-slate-950 border border-slate-700 rounded-full px-1 py-0.5 shadow-md scale-90 sm:scale-100"
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <span className="text-[10px] sm:text-xs leading-none">⚽</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setBall(prev => ({ ...prev, attachedPlayerId: null, x: 50, y: 50 }));
-                      }}
-                      className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold flex items-center justify-center text-[7px] sm:text-[9px] cursor-pointer border-none"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Player Name Tag */}
