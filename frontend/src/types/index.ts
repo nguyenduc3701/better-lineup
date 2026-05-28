@@ -35,9 +35,16 @@ export type Formation =
   | "3-1-2"      // 7v7
   | "2-1-2-1";   // 7v7
 
+export interface BallMove {
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+}
+
 export interface PhaseData {
   formationA: Formation;
   formationB: Formation;
   players: Player[];
   category: "Attack" | "Defence" | "Custom";
+  ballMoves: BallMove[]; // ball pass sequence, max 10 per phase
 }

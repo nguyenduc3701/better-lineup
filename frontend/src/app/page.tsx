@@ -9,6 +9,7 @@ import SubstitutesBench from "../components/lineup/SubstitutesBench";
 import QuickStats from "../components/lineup/QuickStats";
 import TeamSettings from "../components/lineup/TeamSettings";
 import PlayerDetailsEditor from "../components/lineup/PlayerDetailsEditor";
+import BallMovesTracker from "../components/lineup/BallMovesTracker";
 import NewPhaseModal from "../components/lineup/NewPhaseModal";
 
 export default function Home() {
@@ -31,6 +32,7 @@ export default function Home() {
           <div className="w-full lg:w-[380px] flex flex-col gap-6">
             <TeamSettings />
             <PlayerDetailsEditor />
+            <BallMovesTracker />
           </div>
         </main>
 

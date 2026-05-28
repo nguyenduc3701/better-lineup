@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { translations, SupportedLang, Translations } from "../app/translations";
-import { Player, Formation, PhaseData, Motion } from "../types";
+import { Player, Formation, PhaseData, Motion, BallMove } from "../types";
 import { getFormationPositions } from "../utils/formation";
 import { DEFAULT_NAMES_A, DEFAULT_NAMES_B } from "../constants";
 
@@ -55,7 +55,7 @@ interface LineupContextType {
   draggingDraftControlPlayerId: React.MutableRefObject<string | null>;
   
   getOrderedPhaseNames: (currentPhasesMap: Record<string, PhaseData>) => string[];
-  getOppositePhaseName: (pName: string) => string;
+
   propagatePositions: (currentPhasesMap: Record<string, PhaseData>) => Record<string, PhaseData>;
   getMergedPlayersForEditing: (phaseName: string, activeTab: "A" | "B", phasesMap: Record<string, PhaseData>) => Player[];
   savePlayersToPhases: (updatedPlayers: Player[], phaseName: string, activeTab: "A" | "B", currentPhases: Record<string, PhaseData>) => Record<string, PhaseData>;
@@ -80,6 +80,10 @@ interface LineupContextType {
   handleNumberChange: (playerId: string, newNumber: number) => void;
   handleToggleHighlight: (playerId: string) => void;
   handleFormationChange: (team: "A" | "B", formation: Formation) => void;
+  // Ball pass feature
+  phaseBallMoves: BallMove[];
+  handleClearBallMoves: () => void;
+  MAX_BALL_MOVES: number;
 }
 
 const LineupContext = createContext<LineupContextType | undefined>(undefined);
@@ -103,11 +107,14 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [isNewPhaseModalOpen, setIsNewPhaseModalOpen] = useState(false);
   const [newPhaseNameInput, setNewPhaseNameInput] = useState("");
-  const [newPhaseCategoryInput, setNewPhaseCategoryInput] = useState<"Attack" | "Defence" | "Custom">("Attack");
+  const [newPhaseCategoryInput, setNewPhaseCategoryInput] = useState<"Attack" | "Defence" | "Custom">("Custom");
   const [newPhaseError, setNewPhaseError] = useState<string | null>(null);
   const [showTeamMotions, setShowTeamMotions] = useState(false);
 
+  const MAX_BALL_MOVES = 10;
+
   const animationFrameRef = useRef<number | null>(null);
+  const ballAnimFrameRef = useRef<number | null>(null);
   const animationTimeoutRef = useRef<any>(null);
   const playNextTimeoutRef = useRef<any>(null);
   const startTimeoutRef = useRef<any>(null);
@@ -137,6 +144,39 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     attachedPlayerId: null
   });
   const draggingBall = useRef(false);
+
+  const phaseBallMoves = useMemo(() => {
+    const currentPhase = phases[activePhase];
+    return currentPhase?.ballMoves || [];
+  }, [phases, activePhase]);
+
+  const handleClearBallMoves = useCallback(() => {
+    setPhases(currentPhases => {
+      const currentPhase = currentPhases[activePhase];
+      if (!currentPhase) return currentPhases;
+      return {
+        ...currentPhases,
+        [activePhase]: {
+          ...currentPhase,
+          ballMoves: []
+        }
+      };
+    });
+  }, [activePhase]);
+
+  useEffect(() => {
+    if (ball.attachedPlayerId && !draggingBall.current) {
+      const holder = players.find(p => p.id === ball.attachedPlayerId);
+      if (holder) {
+        setBall(prev => {
+          if (prev.x !== holder.x || prev.y !== holder.y) {
+            return { ...prev, x: holder.x, y: holder.y };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [players, ball.attachedPlayerId]);
 
   // Initialize phases & players
   useEffect(() => {
@@ -196,7 +236,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       formationA: "4-4-2",
       formationB: "4-4-2",
       players: initialPlayers(),
-      category: "Custom"
+      category: "Custom",
+      ballMoves: []
     };
 
     ["1. Build-up", "2. Progression", "3. Finishing", "1. Pressing", "2. Mid-block", "3. Deep Defence"].forEach((phaseName) => {
@@ -210,7 +251,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         formationA: "4-4-2",
         formationB: "4-4-2",
         players: initialPlayers(),
-        category
+        category,
+        ballMoves: []
       };
     });
 
@@ -231,44 +273,6 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
-  const getOppositePhaseName = useCallback((pName: string) => {
-    if (pName === "Starting Lineup") return "Starting Lineup";
-
-    const directMap: Record<string, string> = {
-      "1. Build-up": "1. Pressing",
-      "2. Progression": "2. Mid-block",
-      "3. Finishing": "3. Deep Defence",
-      "1. Pressing": "1. Build-up",
-      "2. Mid-block": "2. Progression",
-      "3. Deep Defence": "3. Finishing"
-    };
-
-    if (directMap[pName] && phases[directMap[pName]]) {
-      return directMap[pName];
-    }
-
-    const order = getOrderedPhaseNames(phases);
-    const attackPhases = order.filter(name => phases[name]?.category === "Attack");
-    const defencePhases = order.filter(name => phases[name]?.category === "Defence");
-
-    const currentPhase = phases[pName];
-    if (!currentPhase) return pName;
-
-    if (currentPhase.category === "Attack") {
-      const idx = attackPhases.indexOf(pName);
-      if (defencePhases.length === 0) return pName;
-      const targetIdx = Math.min(idx, defencePhases.length - 1);
-      return defencePhases[targetIdx];
-    } else if (currentPhase.category === "Defence") {
-      const idx = defencePhases.indexOf(pName);
-      if (attackPhases.length === 0) return pName;
-      const targetIdx = Math.min(idx, attackPhases.length - 1);
-      return attackPhases[targetIdx];
-    }
-
-    return pName;
-  }, [phases, getOrderedPhaseNames]);
-
   const propagatePositions = useCallback((currentPhasesMap: Record<string, PhaseData>): Record<string, PhaseData> => {
     const updated = { ...currentPhasesMap };
 
@@ -285,13 +289,13 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const lineupPhase = updated["Starting Lineup"];
     if (!lineupPhase) return updated;
 
-    const propagateChain = (chain: string[]) => {
+    const propagateChain = (chain: string[], initialPrevPhase: string = "Starting Lineup") => {
       for (let i = 0; i < chain.length; i++) {
         const currPhaseName = chain[i];
         const currPhase = updated[currPhaseName];
         if (!currPhase) continue;
 
-        const prevPhaseName = i === 0 ? "Starting Lineup" : chain[i - 1];
+        const prevPhaseName = i === 0 ? initialPrevPhase : chain[i - 1];
         const prevPhase = updated[prevPhaseName];
         if (!prevPhase) continue;
 
@@ -311,6 +315,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           return {
             ...currP,
+            // Propagate substitution & goalkeeper status from previous phase
+            // so that player swaps in earlier phases carry through to later phases
+            isSubstitute: prevP.isSubstitute,
+            isGoalkeeper: prevP.isGoalkeeper,
             x: prevEnd.x,
             y: prevEnd.y,
             motion: updatedMotion,
@@ -324,7 +332,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const defenceChain = order.filter(name => updated[name]?.category === "Defence" && name !== "Starting Lineup");
 
     propagateChain(attackChain);
-    propagateChain(defenceChain);
+    
+    const lastAttackPhase = attackChain.length > 0 ? attackChain[attackChain.length - 1] : "Starting Lineup";
+    propagateChain(defenceChain, lastAttackPhase);
 
     const customChain = order.filter(name => updated[name]?.category === "Custom" && name !== "Starting Lineup");
     propagateChain(customChain);
@@ -340,41 +350,15 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const targetPhase = phasesMap[phaseName];
     if (!targetPhase) return [];
 
-    const oppositePhaseName = getOppositePhaseName(phaseName);
-    const oppPhase = phasesMap[oppositePhaseName] || targetPhase;
-
     return targetPhase.players.map((p) => {
-      if (targetPhase.category === "Custom") {
-        return JSON.parse(JSON.stringify(p));
+      const copy = JSON.parse(JSON.stringify(p));
+      if (copy.motion && phaseName !== "Starting Lineup") {
+        copy.x = copy.motion.end.x;
+        copy.y = copy.motion.end.y;
       }
-
-      if (targetPhase.category === "Attack") {
-        const rawPlayer = p.team === "A"
-          ? p
-          : (oppPhase.players.find((op) => op.id === p.id) || p);
-        const copy = JSON.parse(JSON.stringify(rawPlayer));
-        if (copy.motion) {
-          copy.x = copy.motion.end.x;
-          copy.y = copy.motion.end.y;
-        }
-        return copy;
-      }
-
-      if (targetPhase.category === "Defence") {
-        const rawPlayer = p.team === "B"
-          ? p
-          : (oppPhase.players.find((op) => op.id === p.id) || p);
-        const copy = JSON.parse(JSON.stringify(rawPlayer));
-        if (copy.motion) {
-          copy.x = copy.motion.end.x;
-          copy.y = copy.motion.end.y;
-        }
-        return copy;
-      }
-
-      return JSON.parse(JSON.stringify(p));
+      return copy;
     });
-  }, [getOppositePhaseName]);
+  }, []);
 
   const adjustPlayerMotionAndPosition = useCallback((currP: Player, prevP: Player | undefined): Player => {
     if (!prevP) return currP;
@@ -431,10 +415,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     activeTab: "A" | "B",
     currentPhases: Record<string, PhaseData>
   ): Record<string, PhaseData> => {
-    const oppPhaseName = getOppositePhaseName(phaseName);
     const targetPhase = currentPhases[phaseName];
-    const oppPhase = currentPhases[oppPhaseName];
-    
     if (!targetPhase) return currentPhases;
 
     const order = getOrderedPhaseNames(currentPhases);
@@ -443,68 +424,26 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const prevTargetPhaseName = targetIdx > 0 ? targetChain[targetIdx - 1] : null;
     const prevTargetPhase = prevTargetPhaseName ? currentPhases[prevTargetPhaseName] : null;
 
-    const isCustom = targetPhase.category === "Custom";
-    const targetTeam = targetPhase.category === "Attack" ? "A" : "B";
-
     const nextTargetPlayers = targetPhase.players.map((p) => {
-      if (isCustom || p.team === targetTeam) {
-        const match = updatedPlayers.find((up) => up.id === p.id);
-        if (!match) return p;
+      const match = updatedPlayers.find((up) => up.id === p.id);
+      if (!match) return p;
 
-        if (phaseName === "Starting Lineup" || !prevTargetPhase || match.isGoalkeeper) {
-          return JSON.parse(JSON.stringify(match));
-        }
-
-        const prevP = prevTargetPhase.players.find(prev => prev.id === p.id);
-        return adjustPlayerMotionAndPosition(match, prevP);
+      if (phaseName === "Starting Lineup" || !prevTargetPhase || match.isGoalkeeper) {
+        return JSON.parse(JSON.stringify(match));
       }
-      return p;
+
+      const prevP = prevTargetPhase.players.find(prev => prev.id === p.id);
+      return adjustPlayerMotionAndPosition(match, prevP);
     });
 
-    let nextOppPlayers = oppPhase ? oppPhase.players : [];
-    if (oppPhase && oppPhaseName !== phaseName) {
-      const oppChain = order.filter(name => currentPhases[name]?.category === oppPhase.category || name === "Starting Lineup");
-      const oppIdx = oppChain.indexOf(oppPhaseName);
-      const prevOppPhaseName = oppIdx > 0 ? oppChain[oppIdx - 1] : null;
-      const prevOppPhase = prevOppPhaseName ? currentPhases[prevOppPhaseName] : null;
-
-      const oppTeam = targetTeam === "A" ? "B" : "A";
-
-      nextOppPlayers = oppPhase.players.map((p) => {
-        if (p.team === oppTeam) {
-          const match = updatedPlayers.find((up) => up.id === p.id);
-          if (!match) return p;
-
-          if (oppPhaseName === "Starting Lineup" || !prevOppPhase || match.isGoalkeeper) {
-            return JSON.parse(JSON.stringify(match));
-          }
-
-          const prevP = prevOppPhase.players.find(prev => prev.id === p.id);
-          return adjustPlayerMotionAndPosition(match, prevP);
-        }
-        return p;
-      });
-    }
-
-    let nextPhases = {
+    return {
       ...currentPhases,
       [phaseName]: {
         ...targetPhase,
         players: nextTargetPlayers
       }
     };
-
-    if (oppPhase && oppPhaseName !== phaseName) {
-      nextPhases = {
-        ...nextPhases,
-        [oppPhaseName]: {
-          ...oppPhase,
-          players: nextOppPlayers
-        }
-      };
-    }
-    return nextPhases;
-  }, [getOppositePhaseName, getOrderedPhaseNames, adjustPlayerMotionAndPosition]);
+  }, [getOrderedPhaseNames, adjustPlayerMotionAndPosition]);
 
   const saveAndPropagate = useCallback((nextPlayers: Player[]) => {
     setPhases(currentPhases => {
@@ -525,6 +464,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setActiveConfigTab(newTab);
       const merged = getMergedPlayersForEditing(activePhase, newTab, propagated);
       setPlayers(merged);
+      setSelectedPlayerId(null);
       return propagated;
     });
   }, [players, activePhase, activeConfigTab, savePlayersToPhases, propagatePositions, getMergedPlayersForEditing]);
@@ -533,7 +473,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (newPhaseName === "CREATE_NEW") {
       setIsNewPhaseModalOpen(true);
       setNewPhaseNameInput("");
-      setNewPhaseCategoryInput("Attack");
+      setNewPhaseCategoryInput("Custom");
       setNewPhaseError(null);
       return;
     }
@@ -550,10 +490,51 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setPlayers(merged);
         setActivePhase(newPhaseName);
         setSelectedPlayerId(null);
+
+        // Restore ball state for the new phase
+        if (newPhaseName !== "Starting Lineup") {
+          const moves = targetPhase.ballMoves || [];
+
+          if (moves.length > 0) {
+            // Ball is at the last recipient
+            const lastHolder = moves[moves.length - 1].toPlayerId;
+            const holderPlayer = merged.find(p => p.id === lastHolder);
+            if (holderPlayer) {
+              setBall({ x: holderPlayer.x, y: holderPlayer.y, attachedPlayerId: lastHolder });
+            }
+          } else {
+            // Scan backwards for a previous phase that has ball moves recorded
+            const ordered = getOrderedPhaseNames(propagated);
+            const currentIndex = ordered.indexOf(newPhaseName);
+            let foundHolderId: string | null = null;
+
+            for (let i = currentIndex - 1; i >= 0; i--) {
+              const prevPhaseName = ordered[i];
+              if (prevPhaseName === "Starting Lineup") continue;
+              const prevPhase = propagated[prevPhaseName];
+              if (prevPhase && prevPhase.ballMoves && prevPhase.ballMoves.length > 0) {
+                foundHolderId = prevPhase.ballMoves[prevPhase.ballMoves.length - 1].toPlayerId;
+                break;
+              }
+            }
+
+            const holderPlayer = foundHolderId ? merged.find(p => p.id === foundHolderId) : null;
+            if (holderPlayer) {
+              setBall({ x: holderPlayer.x, y: holderPlayer.y, attachedPlayerId: holderPlayer.id });
+            } else {
+              // Default to goalkeeper (e.g. if we are in "1. Build-up" or no prior moves exist)
+              const gk = merged.find(p => p.team === "A" && p.isGoalkeeper && !p.isSubstitute);
+              if (gk) {
+                setBall({ x: gk.x, y: gk.y, attachedPlayerId: gk.id });
+              }
+            }
+          }
+        }
       }
       return propagated;
     });
-  }, [players, activePhase, activeConfigTab, savePlayersToPhases, propagatePositions, getMergedPlayersForEditing]);
+  }, [players, activePhase, activeConfigTab, savePlayersToPhases, propagatePositions, getMergedPlayersForEditing, getOrderedPhaseNames]);
+
 
   const handleConfirmCreatePhase = useCallback(() => {
     const cleanName = newPhaseNameInput.trim();
@@ -579,7 +560,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           motionStart: null,
           motionDraftControl: null
         })),
-        category: newPhaseCategoryInput
+        category: newPhaseCategoryInput,
+        ballMoves: []
       };
 
       const withNewPhase = { ...updatedPhases, [cleanName]: newPhaseData };
@@ -604,6 +586,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+    if (ballAnimFrameRef.current) {
+      cancelAnimationFrame(ballAnimFrameRef.current);
+      ballAnimFrameRef.current = null;
     }
     if (animationTimeoutRef.current) {
       clearTimeout(animationTimeoutRef.current);
@@ -631,6 +617,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     setAnimationState("idle");
   }, [phases]);
+
 
   const resetPlayersPositions = useCallback(() => {
     const target = phases["Starting Lineup"];
@@ -661,50 +648,124 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    const isLineup = animPhasesList.current[currentAnimPhaseIndex.current] === "Starting Lineup";
+    if (ballAnimFrameRef.current) {
+      cancelAnimationFrame(ballAnimFrameRef.current);
+    }
+    const phaseName = animPhasesList.current[currentAnimPhaseIndex.current];
+    const isLineup = phaseName === "Starting Lineup";
     const duration = isLineup ? 1000 : 2000;
-    const startTime = performance.now();
+    let startTime: number | null = null;
+
+    const targetPhase = phasesRef.current[phaseName];
+    const isAttack = targetPhase?.category === "Attack";
+    let isLastAttackPhase = false;
+    if (isAttack) {
+      isLastAttackPhase = true;
+      for (let i = currentAnimPhaseIndex.current + 1; i < animPhasesList.current.length; i++) {
+        const nextPhaseName = animPhasesList.current[i];
+        const nextPhase = phasesRef.current[nextPhaseName];
+        if (nextPhase && nextPhase.category === "Attack") {
+          isLastAttackPhase = false;
+          break;
+        }
+      }
+    }
+
+    const playNext = () => {
+      if (animPhasesList.current.length > 1 && currentAnimPhaseIndex.current < animPhasesList.current.length - 1) {
+        currentAnimPhaseIndex.current += 1;
+        if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+        playNextTimeoutRef.current = setTimeout(() => {
+          playNextPhaseInSequenceRef.current?.();
+        }, 450);
+      } else {
+        setAnimationState("finished");
+      }
+    };
 
     const animate = (time: number) => {
+      if (startTime === null) startTime = time;
       const elapsed = time - startTime;
-      const progress = Math.min(1, elapsed / duration);
+      const progress = Math.max(0, Math.min(1, elapsed / duration));
 
       const easeT = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 
-      setPlayers(() =>
-        initialPhasePlayers.map((p) => {
-          if (!p.motion) return p;
+      // 1. Calculate player positions at the current timestamp
+      const currentPlayers = initialPhasePlayers.map((p) => {
+        if (!p.motion) return p;
 
-          const start = p.motion.start;
-          const ctrl = p.motion.control || {
-            x: (start.x + p.motion.end.x) / 2,
-            y: (start.y + p.motion.end.y) / 2,
-          };
-          const end = p.motion.end;
+        const start = p.motion.start;
+        const ctrl = p.motion.control || {
+          x: (start.x + p.motion.end.x) / 2,
+          y: (start.y + p.motion.end.y) / 2,
+        };
+        const end = p.motion.end;
 
-          const mt = 1 - easeT;
-          const x = mt * mt * start.x + 2 * mt * easeT * ctrl.x + easeT * easeT * end.x;
-          const y = mt * mt * start.y + 2 * mt * easeT * ctrl.y + easeT * easeT * end.y;
+        const mt = 1 - easeT;
+        const x = mt * mt * start.x + 2 * mt * easeT * ctrl.x + easeT * easeT * end.x;
+        const y = mt * mt * start.y + 2 * mt * easeT * ctrl.y + easeT * easeT * end.y;
 
-          return { ...p, x, y };
-        })
-      );
+        return { ...p, x, y };
+      });
+
+      setPlayers(currentPlayers);
+
+      // 2. Animate ball positions simultaneously
+      const ballMoves = (!isLineup && targetPhase) ? (targetPhase.ballMoves || []) : [];
+
+      if (ballMoves.length > 0) {
+        const totalSegments = ballMoves.length + (isLastAttackPhase ? 1 : 0);
+        const segmentSize = 1 / totalSegments;
+        const segmentIndex = Math.min(totalSegments - 1, Math.floor(progress / segmentSize));
+        const segmentProgress = (progress - (segmentIndex * segmentSize)) / segmentSize;
+
+        if (segmentIndex < ballMoves.length) {
+          const move = ballMoves[segmentIndex];
+          const fromPlayer = currentPlayers.find(p => p.id === move.fromPlayerId);
+          const toPlayer = currentPlayers.find(p => p.id === move.toPlayerId);
+
+          if (fromPlayer && toPlayer) {
+            const ballX = fromPlayer.x + (toPlayer.x - fromPlayer.x) * segmentProgress;
+            const ballY = fromPlayer.y + (toPlayer.y - fromPlayer.y) * segmentProgress;
+            setBall({ x: ballX, y: ballY, attachedPlayerId: null });
+          }
+        } else {
+          // Final shot segment
+          const lastMove = ballMoves[ballMoves.length - 1];
+          const lastHolder = currentPlayers.find(p => p.id === lastMove.toPlayerId);
+          if (lastHolder) {
+            const targetGoalX = lastHolder.team === "A" ? 99 : 1;
+            const targetGoalY = 50;
+            const ballX = lastHolder.x + (targetGoalX - lastHolder.x) * segmentProgress;
+            const ballY = lastHolder.y + (targetGoalY - lastHolder.y) * segmentProgress;
+            setBall({ x: ballX, y: ballY, attachedPlayerId: null });
+          }
+        }
+      }
 
       if (progress < 1) {
         animationFrameRef.current = requestAnimationFrame(animate);
       } else {
-        const playNext = () => {
-          if (animPhasesList.current.length > 1 && currentAnimPhaseIndex.current < animPhasesList.current.length - 1) {
-            currentAnimPhaseIndex.current += 1;
-            if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
-            playNextTimeoutRef.current = setTimeout(() => {
-              playNextPhaseInSequenceRef.current?.();
-            }, 450);
+        // Animation finished
+        if (ballMoves.length > 0) {
+          if (isLastAttackPhase) {
+            const lastMove = ballMoves[ballMoves.length - 1];
+            const lastHolder = currentPlayers.find(p => p.id === lastMove.toPlayerId);
+            const targetGoalX = lastHolder && lastHolder.team === "A" ? 99 : 1;
+            setBall({ x: targetGoalX, y: 50, attachedPlayerId: null });
           } else {
-            setAnimationState("finished");
+            const lastMove = ballMoves[ballMoves.length - 1];
+            const toPlayer = currentPlayers.find(p => p.id === lastMove.toPlayerId);
+            if (toPlayer) {
+              setBall({ x: toPlayer.x, y: toPlayer.y, attachedPlayerId: toPlayer.id });
+            }
           }
-        };
-        playNext();
+        }
+        
+        if (playNextTimeoutRef.current) clearTimeout(playNextTimeoutRef.current);
+        playNextTimeoutRef.current = setTimeout(() => {
+          playNext();
+        }, 300);
       }
     };
 
@@ -719,25 +780,16 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const oppositePhaseName = getOppositePhaseName(phaseName);
     const targetPhase = activePhases[phaseName];
-    const oppPhase = activePhases[oppositePhaseName] || targetPhase;
     if (!targetPhase) {
       setAnimationState("finished");
       return;
     }
 
-    setFormationA(activeConfigTabRef.current === "A" ? targetPhase.formationA : oppPhase.formationA);
-    setFormationB(activeConfigTabRef.current === "B" ? targetPhase.formationB : oppPhase.formationB);
+    setFormationA(targetPhase.formationA);
+    setFormationB(targetPhase.formationB);
 
-    const mergedPlayers = targetPhase.players.map((p) => {
-      if (p.team === activeConfigTabRef.current) {
-        return JSON.parse(JSON.stringify(p));
-      } else {
-        const oppPlayer = oppPhase.players.find((op) => op.id === p.id);
-        return oppPlayer ? JSON.parse(JSON.stringify(oppPlayer)) : JSON.parse(JSON.stringify(p));
-      }
-    });
+    const mergedPlayers = targetPhase.players.map((p) => JSON.parse(JSON.stringify(p)));
 
     setPlayers(mergedPlayers);
     setActivePhase(phaseName);
@@ -746,7 +798,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     animationTimeoutRef.current = setTimeout(() => {
       runSinglePhaseAnim(mergedPlayers);
     }, 200);
-  }, [getOppositePhaseName, runSinglePhaseAnim]);
+  }, [runSinglePhaseAnim]);
 
   useEffect(() => {
     playNextPhaseInSequenceRef.current = playNextPhaseInSequence;
@@ -763,55 +815,58 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    setPhases(currentPhases => {
-      const updatedPhases = savePlayersToPhases(players, activePhase, activeConfigTab, currentPhases);
-      const propagated = propagatePositions(updatedPhases);
+    // Compute propagated phases OUTSIDE the setPhases updater.
+    // Using phasesRef.current ensures we get the latest phases without
+    // calling setState inside another setState updater (React anti-pattern
+    // that causes double-invocation in Strict Mode, breaking the animation).
+    const updatedPhases = savePlayersToPhases(players, activePhase, activeConfigTab, phasesRef.current);
+    const propagated = propagatePositions(updatedPhases);
 
-      savedBasePlayers.current = JSON.parse(JSON.stringify(players));
-      savedActivePhaseBeforeAnim.current = activePhase;
-      
-      if (playMode === "ALL") {
-        const attackList = ["1. Build-up", "2. Progression", "3. Finishing"];
-        const defenceList = ["1. Pressing", "2. Mid-block", "3. Deep Defence"];
-        animPhasesList.current = ["Starting Lineup", ...attackList, ...defenceList];
-        currentAnimPhaseIndex.current = 0;
-      } else if (playMode === "GROUP_Attack") {
-        const list = getOrderedPhaseNames(propagated).filter(
-          name => propagated[name]?.category === "Attack"
-        );
-        animPhasesList.current = ["Starting Lineup", ...list];
-        currentAnimPhaseIndex.current = 0;
-      } else if (playMode === "GROUP_Defence") {
-        const list = getOrderedPhaseNames(propagated).filter(
-          name => propagated[name]?.category === "Defence"
-        );
-        animPhasesList.current = ["Starting Lineup", ...list];
-        currentAnimPhaseIndex.current = 0;
-      } else if (playMode === "GROUP_Custom") {
-        const list = getOrderedPhaseNames(propagated).filter(
-          name => propagated[name]?.category === "Custom"
-        );
-        animPhasesList.current = ["Starting Lineup", ...list];
-        currentAnimPhaseIndex.current = 0;
+    savedBasePlayers.current = JSON.parse(JSON.stringify(players));
+    savedActivePhaseBeforeAnim.current = activePhase;
+
+    if (playMode === "ALL") {
+      const attackList = ["1. Build-up", "2. Progression", "3. Finishing"];
+      const defenceList = ["1. Pressing", "2. Mid-block", "3. Deep Defence"];
+      animPhasesList.current = ["Starting Lineup", ...attackList, ...defenceList];
+      currentAnimPhaseIndex.current = 0;
+    } else if (playMode === "GROUP_Attack") {
+      const list = getOrderedPhaseNames(propagated).filter(
+        name => propagated[name]?.category === "Attack"
+      );
+      animPhasesList.current = ["Starting Lineup", ...list];
+      currentAnimPhaseIndex.current = 0;
+    } else if (playMode === "GROUP_Defence") {
+      const list = getOrderedPhaseNames(propagated).filter(
+        name => propagated[name]?.category === "Defence"
+      );
+      animPhasesList.current = ["Starting Lineup", ...list];
+      currentAnimPhaseIndex.current = 0;
+    } else if (playMode === "GROUP_Custom") {
+      const list = getOrderedPhaseNames(propagated).filter(
+        name => propagated[name]?.category === "Custom"
+      );
+      animPhasesList.current = ["Starting Lineup", ...list];
+      currentAnimPhaseIndex.current = 0;
+    } else {
+      if (playMode === "Starting Lineup") {
+        animPhasesList.current = ["Starting Lineup"];
       } else {
-        if (playMode === "Starting Lineup") {
-          animPhasesList.current = ["Starting Lineup"];
-        } else {
-          animPhasesList.current = ["Starting Lineup", playMode];
-        }
-        currentAnimPhaseIndex.current = 0;
+        animPhasesList.current = ["Starting Lineup", playMode];
       }
+      currentAnimPhaseIndex.current = 0;
+    }
 
-      setAnimationState("playing");
-      
-      // Schedule call to playNextPhaseInSequence
-      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
-      startTimeoutRef.current = setTimeout(() => {
-        playNextPhaseInSequence(propagated);
-      }, 0);
+    // Update phases state (plain value, not functional updater — no side effects inside)
+    setPhases(propagated);
 
-      return propagated;
-    });
+    // Set animation state and schedule first phase — OUTSIDE the setPhases updater
+    setAnimationState("playing");
+
+    if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+    startTimeoutRef.current = setTimeout(() => {
+      playNextPhaseInSequence(propagated);
+    }, 0);
   }, [animationState, players, activePhase, activeConfigTab, playMode, savePlayersToPhases, propagatePositions, getOrderedPhaseNames, playNextPhaseInSequence, stopAndResetAnimation, resetPlayersPositions]);
 
   useEffect(() => {
@@ -826,19 +881,19 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const handleMouseDown = useCallback((playerId: string) => {
+    const player = players.find(p => p.id === playerId);
+    if (!player || player.team !== activeConfigTab) return;
+
     setSelectedPlayerId(playerId);
     
-    const player = players.find(p => p.id === playerId);
-    if (player) {
-      if (player.isGoalkeeper) return;
-      draggingPlayerId.current = playerId;
-      initialDragState.current = {
-        x: player.x,
-        y: player.y,
-        motion: player.motion ? JSON.parse(JSON.stringify(player.motion)) : null,
-      };
-    }
-  }, [players]);
+    if (player.isGoalkeeper) return;
+    draggingPlayerId.current = playerId;
+    initialDragState.current = {
+      x: player.x,
+      y: player.y,
+      motion: player.motion ? JSON.parse(JSON.stringify(player.motion)) : null,
+    };
+  }, [players, activeConfigTab]);
 
   const handleControlPointMouseDown = useCallback((playerId: string, motionId: string) => {
     draggingControlPoint.current = { playerId, motionId };
@@ -881,8 +936,12 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const playerId = draggingDraftControlPlayerId.current;
       setPlayers(prev =>
         prev.map(p => {
-          if (p.id !== playerId) return p;
-          return { ...p, motionDraftControl: { x: pctX, y: pctY } };
+          if (p.id !== playerId || !p.motionStart) return p;
+          const start = p.motionStart;
+          const end = { x: p.x, y: p.y };
+          const ctrlX = 2 * pctX - 0.5 * (start.x + end.x);
+          const ctrlY = 2 * pctY - 0.5 * (start.y + end.y);
+          return { ...p, motionDraftControl: { x: ctrlX, y: ctrlY } };
         })
       );
       return;
@@ -893,11 +952,15 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setPlayers(prev =>
         prev.map(p => {
           if (p.id !== playerId || !p.motion) return p;
+          const start = p.motion.start;
+          const end = p.motion.end;
+          const ctrlX = 2 * pctX - 0.5 * (start.x + end.x);
+          const ctrlY = 2 * pctY - 0.5 * (start.y + end.y);
           return {
             ...p,
             motion: {
               ...p.motion,
-              control: { x: pctX, y: pctY }
+              control: { x: ctrlX, y: ctrlY }
             }
           };
         })
@@ -945,6 +1008,17 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (draggingBall.current) {
       draggingBall.current = false;
+
+      // Ball interaction is disabled in Starting Lineup
+      if (activePhase === "Starting Lineup") {
+        // Snap ball back to its attached player (if any)
+        if (ball.attachedPlayerId) {
+          const holder = players.find(p => p.id === ball.attachedPlayerId);
+          if (holder) setBall(prev => ({ ...prev, x: holder.x, y: holder.y }));
+        }
+        return;
+      }
+
       const dropX = ball.x;
       const dropY = ball.y;
       
@@ -953,15 +1027,41 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         Math.sqrt(Math.pow(p.x - dropX, 2) + Math.pow(p.y - dropY, 2)) < 5.0
       );
 
-      if (activePlayerNear) {
-        setBall(prev => ({
-          ...prev,
+      if (activePlayerNear && activePlayerNear.id !== ball.attachedPlayerId) {
+        const fromPlayerId = ball.attachedPlayerId;
+
+        setBall({
           attachedPlayerId: activePlayerNear.id,
           x: activePlayerNear.x,
           y: activePlayerNear.y
-        }));
+        });
+
+        // Record ball move if coming from another player and under limit
+        if (fromPlayerId) {
+          setPhases(currentPhases => {
+            const phase = currentPhases[activePhase];
+            if (!phase) return currentPhases;
+            const existingMoves = phase.ballMoves || [];
+            if (existingMoves.length >= MAX_BALL_MOVES) return currentPhases;
+            const newMove: BallMove = {
+              id: Math.random().toString(36).substring(2, 9),
+              fromPlayerId,
+              toPlayerId: activePlayerNear.id
+            };
+            return {
+              ...currentPhases,
+              [activePhase]: {
+                ...phase,
+                ballMoves: [...existingMoves, newMove]
+              }
+            };
+          });
+        }
+      } else if (!activePlayerNear) {
+        setBall(prev => ({ ...prev, attachedPlayerId: null }));
       }
     }
+
     
     if (draggingPlayerId.current) {
       const draggedId = draggingPlayerId.current;
@@ -1205,17 +1305,9 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       setPhases(currentPhases => {
         const updated = savePlayersToPhases(nextPlayers, activePhase, activeConfigTab, currentPhases);
-        const oppPhaseName = getOppositePhaseName(activePhase);
         if (updated[activePhase]) {
           updated[activePhase] = {
             ...updated[activePhase],
-            formationA: nextFormationA,
-            formationB: nextFormationB
-          };
-        }
-        if (updated[oppPhaseName] && oppPhaseName !== activePhase) {
-          updated[oppPhaseName] = {
-            ...updated[oppPhaseName],
             formationA: nextFormationA,
             formationB: nextFormationB
           };
@@ -1225,7 +1317,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       return nextPlayers;
     });
-  }, [activePhase, activeConfigTab, formationA, formationB, savePlayersToPhases, getOppositePhaseName, propagatePositions]);
+  }, [activePhase, activeConfigTab, formationA, formationB, savePlayersToPhases, propagatePositions]);
 
   const handleColorChange = useCallback((team: "A" | "B", hexColor: string) => {
     if (team === "A") {
@@ -1315,31 +1407,59 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [saveAndPropagate]);
 
   const handleNameChange = useCallback((playerId: string, newName: string) => {
-    setPlayers(prev => {
-      const next = prev.map(p => (p.id === playerId ? { ...p, name: newName } : p));
-      saveAndPropagate(next);
-      return next;
+    setPhases(prevPhases => {
+      const updatedPhases = { ...prevPhases };
+      Object.keys(updatedPhases).forEach(phaseName => {
+        updatedPhases[phaseName] = {
+          ...updatedPhases[phaseName],
+          players: updatedPhases[phaseName].players.map(p => 
+            p.id === playerId ? { ...p, name: newName } : p
+          )
+        };
+      });
+      return updatedPhases;
     });
-  }, [saveAndPropagate]);
+    setPlayers(prev => prev.map(p => (p.id === playerId ? { ...p, name: newName } : p)));
+  }, []);
 
   const handleNumberChange = useCallback((playerId: string, newNumber: number) => {
-    setPlayers(prev => {
-      const next = prev.map(p => (p.id === playerId ? { ...p, number: newNumber } : p));
-      saveAndPropagate(next);
-      return next;
+    setPhases(prevPhases => {
+      const updatedPhases = { ...prevPhases };
+      Object.keys(updatedPhases).forEach(phaseName => {
+        updatedPhases[phaseName] = {
+          ...updatedPhases[phaseName],
+          players: updatedPhases[phaseName].players.map(p => 
+            p.id === playerId ? { ...p, number: newNumber } : p
+          )
+        };
+      });
+      return updatedPhases;
     });
-  }, [saveAndPropagate]);
+    setPlayers(prev => prev.map(p => (p.id === playerId ? { ...p, number: newNumber } : p)));
+  }, []);
 
   const handleToggleHighlight = useCallback((playerId: string) => {
-    setPlayers(prev => {
-      const next = prev.map(p => {
-        if (p.id !== playerId) return p;
-        return { ...p, isHighlighted: !p.isHighlighted };
-      });
-      saveAndPropagate(next);
-      return next;
+    const currentPlayer = players.find(p => p.id === playerId);
+    if (!currentPlayer || currentPlayer.team !== activeConfigTab) return;
+    const newHighlighted = !currentPlayer.isHighlighted;
+
+    setPlayers(prev => prev.map(p =>
+      p.id === playerId ? { ...p, isHighlighted: newHighlighted } : p
+    ));
+
+    setPhases(currentPhases => {
+      const updated: Record<string, PhaseData> = {};
+      for (const phaseName of Object.keys(currentPhases)) {
+        updated[phaseName] = {
+          ...currentPhases[phaseName],
+          players: currentPhases[phaseName].players.map(p =>
+            p.id === playerId ? { ...p, isHighlighted: newHighlighted } : p
+          )
+        };
+      }
+      return updated;
     });
-  }, [saveAndPropagate]);
+  }, [players, activeConfigTab]);
 
   return (
     <LineupContext.Provider
@@ -1392,7 +1512,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         draggingDraftControlPlayerId,
         
         getOrderedPhaseNames,
-        getOppositePhaseName,
+
         propagatePositions,
         getMergedPlayersForEditing,
         savePlayersToPhases,
@@ -1416,7 +1536,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         handleNameChange,
         handleNumberChange,
         handleToggleHighlight,
-        handleFormationChange
+        handleFormationChange,
+        phaseBallMoves,
+        handleClearBallMoves,
+        MAX_BALL_MOVES
       }}
     >
       {children}
