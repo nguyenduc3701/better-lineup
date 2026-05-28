@@ -11,10 +11,12 @@ import QuickStats from "../components/lineup/QuickStats";
 import TeamSettings from "../components/lineup/TeamSettings";
 import PlayerDetailsEditor from "../components/lineup/PlayerDetailsEditor";
 import NewPhaseModal from "../components/lineup/NewPhaseModal";
+import MatchSetupModal from "../components/lineup/MatchSetupModal";
 
 export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSetupOpen, setIsSetupOpen] = useState(true);
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -61,6 +63,9 @@ export default function Home() {
 
         {/* Create New Phase Modal */}
         <NewPhaseModal />
+
+        {/* Configuration Setup Modal on First Entry */}
+        <MatchSetupModal isOpen={isSetupOpen} onClose={() => setIsSetupOpen(false)} />
       </div>
     </LineupProvider>
   );

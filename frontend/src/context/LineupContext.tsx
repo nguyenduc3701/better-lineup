@@ -5,6 +5,7 @@ import { translations, SupportedLang, Translations } from "../app/translations";
 import { Player, Formation, PhaseData, Motion } from "../types";
 import { getFormationPositions } from "../utils/formation";
 import { DEFAULT_NAMES_A, DEFAULT_NAMES_B } from "../constants";
+import { MOCK_TEAMS } from "../constants/mockTeams";
 
 interface LineupContextType {
   activeLang: SupportedLang;
@@ -80,6 +81,13 @@ interface LineupContextType {
   handleNumberChange: (playerId: string, newNumber: number) => void;
   handleToggleHighlight: (playerId: string) => void;
   handleFormationChange: (team: "A" | "B", formation: Formation) => void;
+  setupMatch: (config: {
+    mode: "7v7" | "11v11";
+    teamAName?: string;
+    teamBName?: string;
+    colorA?: string;
+    colorB?: string;
+  }) => void;
 }
 
 const LineupContext = createContext<LineupContextType | undefined>(undefined);
@@ -1227,6 +1235,177 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, [activePhase, activeConfigTab, formationA, formationB, savePlayersToPhases, getOppositePhaseName, propagatePositions]);
 
+  const setupMatch = useCallback((config: {
+    mode: "7v7" | "11v11";
+    teamAName?: string;
+    teamBName?: string;
+    colorA?: string;
+    colorB?: string;
+  }) => {
+    const is7v7 = config.mode === "7v7";
+    const formA: Formation = is7v7 ? "3-2-1" : (config.teamAName ? (MOCK_TEAMS[config.teamAName]?.formation || "4-4-2") : "4-4-2");
+    const formB: Formation = is7v7 ? "3-2-1" : (config.teamBName ? (MOCK_TEAMS[config.teamBName]?.formation || "4-4-2") : "4-4-2");
+
+    const colA = config.colorA || (config.teamAName ? MOCK_TEAMS[config.teamAName]?.color : "#e11d48") || "#e11d48";
+    const colB = config.colorB || (config.teamBName ? MOCK_TEAMS[config.teamBName]?.color : "#2563eb") || "#2563eb";
+
+    setFormationA(formA);
+    setFormationB(formB);
+    setTeamAColor(colA);
+    setTeamBColor(colB);
+
+    const generatePlayers = () => {
+      const pList: Player[] = [];
+      const posA = getFormationPositions(formA, "A");
+      const posB = getFormationPositions(formB, "B");
+
+      if (!is7v7 && config.teamAName && MOCK_TEAMS[config.teamAName]) {
+        const teamData = MOCK_TEAMS[config.teamAName];
+        posA.forEach((pos, idx) => {
+          const starter = teamData.starters[idx] || { id: `A-${idx}`, name: `Player A${idx + 1}`, number: idx + 1 };
+          pList.push({
+            id: `A-starter-${starter.id}-${idx}`,
+            name: starter.name,
+            number: starter.number,
+            team: "A",
+            x: pos.x,
+            y: pos.y,
+            isGoalkeeper: pos.isGoalkeeper,
+            isSubstitute: false,
+            motion: null
+          });
+        });
+        teamData.subs.forEach((sub, idx) => {
+          pList.push({
+            id: `A-sub-${sub.id}-${idx}`,
+            name: sub.name,
+            number: sub.number,
+            team: "A",
+            x: 0,
+            y: 0,
+            isGoalkeeper: sub.isGoalkeeper,
+            isSubstitute: true,
+            motion: null
+          });
+        });
+      } else {
+        const count = is7v7 ? 7 : 11;
+        posA.forEach((pos, idx) => {
+          pList.push({
+            ...pos,
+            id: `A-starter-${idx}`,
+            name: DEFAULT_NAMES_A[idx] || `Player A${idx + 1}`,
+            number: idx + 1,
+            team: "A",
+            isSubstitute: false,
+            motion: null
+          });
+        });
+        for (let idx = 0; idx < 7; idx++) {
+          pList.push({
+            id: `A-sub-${idx}`,
+            name: DEFAULT_NAMES_A[count + idx] || `Sub A${idx + 1}`,
+            number: count + 1 + idx,
+            team: "A",
+            x: 0,
+            y: 0,
+            isSubstitute: true,
+            motion: null
+          });
+        }
+      }
+
+      if (!is7v7 && config.teamBName && MOCK_TEAMS[config.teamBName]) {
+        const teamData = MOCK_TEAMS[config.teamBName];
+        posB.forEach((pos, idx) => {
+          const starter = teamData.starters[idx] || { id: `B-${idx}`, name: `Player B${idx + 1}`, number: idx + 1 };
+          pList.push({
+            id: `B-starter-${starter.id}-${idx}`,
+            name: starter.name,
+            number: starter.number,
+            team: "B",
+            x: pos.x,
+            y: pos.y,
+            isGoalkeeper: pos.isGoalkeeper,
+            isSubstitute: false,
+            motion: null
+          });
+        });
+        teamData.subs.forEach((sub, idx) => {
+          pList.push({
+            id: `B-sub-${sub.id}-${idx}`,
+            name: sub.name,
+            number: sub.number,
+            team: "B",
+            x: 0,
+            y: 0,
+            isGoalkeeper: sub.isGoalkeeper,
+            isSubstitute: true,
+            motion: null
+          });
+        });
+      } else {
+        const count = is7v7 ? 7 : 11;
+        posB.forEach((pos, idx) => {
+          pList.push({
+            ...pos,
+            id: `B-starter-${idx}`,
+            name: DEFAULT_NAMES_B[idx] || `Player B${idx + 1}`,
+            number: idx + 1,
+            team: "B",
+            isSubstitute: false,
+            motion: null
+          });
+        });
+        for (let idx = 0; idx < 7; idx++) {
+          pList.push({
+            id: `B-sub-${idx}`,
+            name: DEFAULT_NAMES_B[count + idx] || `Sub B${idx + 1}`,
+            number: count + 1 + idx,
+            team: "B",
+            x: 0,
+            y: 0,
+            isSubstitute: true,
+            motion: null
+          });
+        }
+      }
+
+      return pList;
+    };
+
+    const nextPlayers = generatePlayers();
+    setPlayers(nextPlayers);
+    setBall({ x: 50, y: 50, attachedPlayerId: null });
+
+    const initialPhasesMap: Record<string, PhaseData> = {};
+    initialPhasesMap["Starting Lineup"] = {
+      formationA: formA,
+      formationB: formB,
+      players: JSON.parse(JSON.stringify(nextPlayers)),
+      category: "Custom"
+    };
+
+    ["1. Build-up", "2. Progression", "3. Finishing", "1. Pressing", "2. Mid-block", "3. Deep Defence"].forEach((phaseName) => {
+      let category: "Attack" | "Defence" | "Custom" = "Custom";
+      if (["1. Build-up", "2. Progression", "3. Finishing"].includes(phaseName)) {
+        category = "Attack";
+      } else if (["1. Pressing", "2. Mid-block", "3. Deep Defence"].includes(phaseName)) {
+        category = "Defence";
+      }
+      initialPhasesMap[phaseName] = {
+        formationA: formA,
+        formationB: formB,
+        players: JSON.parse(JSON.stringify(nextPlayers)),
+        category
+      };
+    });
+
+    setPhases(initialPhasesMap);
+    setActivePhase("Starting Lineup");
+    setSelectedPlayerId(null);
+  }, []);
+
   const handleColorChange = useCallback((team: "A" | "B", hexColor: string) => {
     if (team === "A") {
       if (hexColor.toLowerCase() === teamBColor.toLowerCase()) {
@@ -1416,7 +1595,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         handleNameChange,
         handleNumberChange,
         handleToggleHighlight,
-        handleFormationChange
+        handleFormationChange,
+        setupMatch
       }}
     >
       {children}
