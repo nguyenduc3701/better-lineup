@@ -38,12 +38,12 @@ export default function Header() {
           onChange={(e) => setActiveLang(e.target.value as SupportedLang)}
           className="bg-slate-950 text-slate-300 border border-slate-800 rounded-lg px-1.5 sm:px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500/50 cursor-pointer sm:mr-2"
         >
-          <option value="en">🇬🇧 <span className="hidden sm:inline">English</span></option>
-          <option value="vi">🇻🇳 <span className="hidden sm:inline">Tiếng Việt</span></option>
-          <option value="cn">🇨🇳 <span className="hidden sm:inline">中文</span></option>
-          <option value="kr">🇰🇷 <span className="hidden sm:inline">한국어</span></option>
-          <option value="fr">🇫🇷 <span className="hidden sm:inline">Français</span></option>
-          <option value="jp">🇯🇵 <span className="hidden sm:inline">日本語</span></option>
+          <option value="en">🇬🇧 English</option>
+          <option value="vi">🇻🇳 Tiếng Việt</option>
+          <option value="cn">🇨🇳 中文</option>
+          <option value="kr">🇰🇷 한국어</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="jp">🇯🇵 日本語</option>
         </select>
 
         <select
