@@ -18,39 +18,39 @@ export default function Header() {
   } = useLineup();
 
   return (
-    <header className="px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between sticky top-0 z-50">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-slate-950">
+    <header className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between sticky top-0 z-50">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5 text-slate-950">
             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 9a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V15a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V9z" clipRule="evenodd" />
           </svg>
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">{t.title}</h1>
-          <p className="text-xs text-slate-400 font-medium">{t.subtitle}</p>
+          <h1 className="text-base sm:text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">{t.title}</h1>
+          <p className="hidden sm:block text-xs text-slate-400 font-medium">{t.subtitle}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Language Selector */}
         <select
           value={activeLang}
           onChange={(e) => setActiveLang(e.target.value as SupportedLang)}
-          className="bg-slate-950 text-slate-300 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500/50 cursor-pointer mr-2"
+          className="bg-slate-950 text-slate-300 border border-slate-800 rounded-lg px-1.5 sm:px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500/50 cursor-pointer sm:mr-2"
         >
-          <option value="en">🇬🇧 English</option>
-          <option value="vi">🇻🇳 Tiếng Việt</option>
-          <option value="cn">🇨🇳 中文</option>
-          <option value="kr">🇰🇷 한국어</option>
-          <option value="fr">🇫🇷 Français</option>
-          <option value="jp">🇯🇵 日本語</option>
+          <option value="en">🇬🇧 <span className="hidden sm:inline">English</span></option>
+          <option value="vi">🇻🇳 <span className="hidden sm:inline">Tiếng Việt</span></option>
+          <option value="cn">🇨🇳 <span className="hidden sm:inline">中文</span></option>
+          <option value="kr">🇰🇷 <span className="hidden sm:inline">한국어</span></option>
+          <option value="fr">🇫🇷 <span className="hidden sm:inline">Français</span></option>
+          <option value="jp">🇯🇵 <span className="hidden sm:inline">日本語</span></option>
         </select>
 
         <select
           value={playMode}
           onChange={(e) => setPlayMode(e.target.value)}
           disabled={animationState === "playing"}
-          className="bg-slate-900 text-slate-200 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500/50 cursor-pointer disabled:opacity-50"
+          className="hidden sm:block bg-slate-900 text-slate-200 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500/50 cursor-pointer disabled:opacity-50"
         >
           <option value="ALL">{t.playModeAll}</option>
           <option value="GROUP_Attack">{t.playModeGroupAttack}</option>

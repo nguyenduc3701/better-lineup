@@ -71,6 +71,12 @@ interface LineupContextType {
   handleDraftControlMouseDown: (playerId: string) => void;
   handleMouseMove: (e: React.MouseEvent<HTMLDivElement>) => void;
   handleMouseUpOrLeave: () => void;
+  handleTouchStart: (e: React.TouchEvent<HTMLDivElement>, playerId: string) => void;
+  handleTouchMove: (e: React.TouchEvent<HTMLDivElement>) => void;
+  handleTouchEnd: () => void;
+  handleBallTouchStart: (e: React.TouchEvent<HTMLDivElement>) => void;
+  handleControlPointTouchStart: (e: React.TouchEvent<HTMLDivElement>, playerId: string, motionId: string) => void;
+  handleDraftControlTouchStart: (e: React.TouchEvent<HTMLDivElement>, playerId: string) => void;
   handleColorChange: (team: "A" | "B", hexColor: string) => void;
   handleStartMotion: (playerId: string) => void;
   handleSaveMotion: (playerId: string) => void;
@@ -1168,6 +1174,135 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     draggingDraftControlPlayerId.current = null;
   }, [activePhase, ball, players, saveAndPropagate]);
 
+  // ─── Touch Support ───────────────────────────────────────────────────────
+  const getTouchPct = useCallback((touch: React.Touch) => {
+    if (!pitchRef.current) return { pctX: 50, pctY: 50 };
+    const rect = pitchRef.current.getBoundingClientRect();
+    const clientX = touch.clientX - rect.left;
+    const clientY = touch.clientY - rect.top;
+    const pctX = Math.max(2, Math.min(98, (clientX / rect.width) * 100));
+    const pctY = Math.max(2, Math.min(98, (clientY / rect.height) * 100));
+    return { pctX, pctY };
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, playerId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleMouseDown(playerId);
+  }, [handleMouseDown]);
+
+  const handleBallTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    draggingBall.current = true;
+  }, []);
+
+  const handleControlPointTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, playerId: string, motionId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleControlPointMouseDown(playerId, motionId);
+  }, [handleControlPointMouseDown]);
+
+  const handleDraftControlTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, playerId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleDraftControlMouseDown(playerId);
+  }, [handleDraftControlMouseDown]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!pitchRef.current) return;
+    if (!draggingPlayerId.current && !draggingBall.current && !draggingControlPoint.current && !draggingDraftControlPlayerId.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    if (!touch) return;
+    const { pctX, pctY } = getTouchPct(touch);
+
+    if (draggingBall.current) {
+      setBall(prev => ({ ...prev, x: pctX, y: pctY }));
+      return;
+    }
+
+    if (draggingPlayerId.current) {
+      const playerId = draggingPlayerId.current;
+      const draggedPlayer = players.find(p => p.id === playerId);
+      if (draggedPlayer?.isSubstitute) {
+        setPlayers(prev =>
+          prev.map(p => {
+            if (p.id !== playerId) return p;
+            return { ...p, x: pctX, y: pctY };
+          })
+        );
+        return;
+      }
+    }
+
+    if (draggingDraftControlPlayerId.current) {
+      const playerId = draggingDraftControlPlayerId.current;
+      setPlayers(prev =>
+        prev.map(p => {
+          if (p.id !== playerId) return p;
+          return { ...p, motionDraftControl: { x: pctX, y: pctY } };
+        })
+      );
+      return;
+    }
+
+    if (draggingControlPoint.current) {
+      const { playerId } = draggingControlPoint.current;
+      setPlayers(prev =>
+        prev.map(p => {
+          if (p.id !== playerId || !p.motion) return p;
+          return {
+            ...p,
+            motion: {
+              ...p.motion,
+              control: { x: pctX, y: pctY }
+            }
+          };
+        })
+      );
+      return;
+    }
+
+    if (!draggingPlayerId.current || !initialDragState.current) return;
+
+    const dx = pctX - initialDragState.current.x;
+    const dy = pctY - initialDragState.current.y;
+
+    setPlayers(prev =>
+      prev.map(p => {
+        if (p.id !== draggingPlayerId.current) return p;
+
+        const m = initialDragState.current!.motion;
+        const updatedMotion = p.motionStart || !m
+          ? p.motion
+          : {
+              ...m,
+              start: { x: m.start.x + dx, y: m.start.y + dy },
+              end: { x: m.end.x + dx, y: m.end.y + dy },
+              control: m.control ? { x: m.control.x + dx, y: m.control.y + dy } : null
+            };
+
+        const updatedDraftControl = p.motionStart
+          ? { x: (p.motionStart.x + pctX) / 2, y: (p.motionStart.y + pctY) / 2 }
+          : p.motionDraftControl;
+
+        return {
+          ...p,
+          x: pctX,
+          y: pctY,
+          motion: updatedMotion,
+          motionDraftControl: updatedDraftControl
+        };
+      })
+    );
+  }, [players, getTouchPct]);
+
+  const handleTouchEnd = useCallback(() => {
+    handleMouseUpOrLeave();
+  }, [handleMouseUpOrLeave]);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleFormationChange = useCallback((team: "A" | "B", formation: Formation) => {
     let nextFormationA = formationA;
     let nextFormationB = formationB;
@@ -1528,6 +1663,12 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         handleDraftControlMouseDown,
         handleMouseMove,
         handleMouseUpOrLeave,
+        handleTouchStart,
+        handleTouchMove,
+        handleTouchEnd,
+        handleBallTouchStart,
+        handleControlPointTouchStart,
+        handleDraftControlTouchStart,
         handleColorChange,
         handleStartMotion,
         handleSaveMotion,

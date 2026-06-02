@@ -11,6 +11,7 @@ import TeamSettings from "../components/lineup/TeamSettings";
 import PlayerDetailsEditor from "../components/lineup/PlayerDetailsEditor";
 import BallMovesTracker from "../components/lineup/BallMovesTracker";
 import NewPhaseModal from "../components/lineup/NewPhaseModal";
+import MobilePlayModeBar from "../components/lineup/MobilePlayModeBar";
 
 export default function Home() {
   return (
@@ -18,10 +19,13 @@ export default function Home() {
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
         <Header />
         
+        {/* Mobile-only: Play mode bar */}
+        <MobilePlayModeBar />
+
         {/* Main Workspace */}
-        <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-[1600px] w-full mx-auto">
+        <main className="flex-1 flex flex-col lg:flex-row gap-3 sm:gap-6 p-3 sm:p-6 max-w-[1600px] w-full mx-auto">
           {/* Pitch Area */}
-          <div className="flex-1 flex flex-col gap-4">
+          <div className="flex-1 flex flex-col gap-3 sm:gap-4">
             <Toolbar />
             <Pitch />
             <SubstitutesBench />
@@ -29,7 +33,7 @@ export default function Home() {
           </div>
 
           {/* Sidebar Controls */}
-          <div className="w-full lg:w-[380px] flex flex-col gap-6">
+          <div className="w-full lg:w-[360px] flex flex-col gap-4 sm:gap-6">
             <TeamSettings />
             <PlayerDetailsEditor />
             <BallMovesTracker />

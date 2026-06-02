@@ -9,7 +9,8 @@ export default function SubstitutesBench() {
     players,
     teamAColor,
     teamBColor,
-    handleMouseDown
+    handleMouseDown,
+    handleTouchStart
   } = useLineup();
 
   return (
@@ -28,23 +29,26 @@ export default function SubstitutesBench() {
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: teamAColor }} />
             <span className="text-xs font-bold text-slate-300">{t.teamTab.replace("{team}", "A")}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {players.filter(p => p.team === "A" && p.isSubstitute).map(p => (
-              <div
-                key={p.id}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  handleMouseDown(p.id);
-                }}
-                className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-lg px-2.5 py-1.5 cursor-grab active:cursor-grabbing transition-all select-none"
-              >
-                <div className="w-3.5 h-3.5 rounded-full border border-slate-700/80" style={{ backgroundColor: teamAColor }} />
-                <span className="text-[11px] font-medium text-slate-300">{p.name}</span>
-              </div>
-            ))}
-            {players.filter(p => p.team === "A" && p.isSubstitute).length === 0 && (
-              <span className="text-[11px] text-slate-500 italic">No substitutes</span>
-            )}
+          <div className="overflow-x-auto pb-1">
+            <div className="flex gap-2 min-w-max">
+              {players.filter(p => p.team === "A" && p.isSubstitute).map(p => (
+                <div
+                  key={p.id}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    handleMouseDown(p.id);
+                  }}
+                  onTouchStart={(e) => handleTouchStart(e, p.id)}
+                  className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-lg px-2.5 py-2 cursor-grab active:cursor-grabbing transition-all select-none touch-none"
+                >
+                  <div className="w-3.5 h-3.5 rounded-full border border-slate-700/80" style={{ backgroundColor: teamAColor }} />
+                  <span className="text-[11px] font-medium text-slate-300 whitespace-nowrap">{p.name}</span>
+                </div>
+              ))}
+              {players.filter(p => p.team === "A" && p.isSubstitute).length === 0 && (
+                <span className="text-[11px] text-slate-500 italic">No substitutes</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -54,23 +58,26 @@ export default function SubstitutesBench() {
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: teamBColor }} />
             <span className="text-xs font-bold text-slate-300">{t.teamTab.replace("{team}", "B")}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {players.filter(p => p.team === "B" && p.isSubstitute).map(p => (
-              <div
-                key={p.id}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  handleMouseDown(p.id);
-                }}
-                className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-lg px-2.5 py-1.5 cursor-grab active:cursor-grabbing transition-all select-none"
-              >
-                <div className="w-3.5 h-3.5 rounded-full border border-slate-700/80" style={{ backgroundColor: teamBColor }} />
-                <span className="text-[11px] font-medium text-slate-300">{p.name}</span>
-              </div>
-            ))}
-            {players.filter(p => p.team === "B" && p.isSubstitute).length === 0 && (
-              <span className="text-[11px] text-slate-500 italic">No substitutes</span>
-            )}
+          <div className="overflow-x-auto pb-1">
+            <div className="flex gap-2 min-w-max">
+              {players.filter(p => p.team === "B" && p.isSubstitute).map(p => (
+                <div
+                  key={p.id}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    handleMouseDown(p.id);
+                  }}
+                  onTouchStart={(e) => handleTouchStart(e, p.id)}
+                  className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-lg px-2.5 py-2 cursor-grab active:cursor-grabbing transition-all select-none touch-none"
+                >
+                  <div className="w-3.5 h-3.5 rounded-full border border-slate-700/80" style={{ backgroundColor: teamBColor }} />
+                  <span className="text-[11px] font-medium text-slate-300 whitespace-nowrap">{p.name}</span>
+                </div>
+              ))}
+              {players.filter(p => p.team === "B" && p.isSubstitute).length === 0 && (
+                <span className="text-[11px] text-slate-500 italic">No substitutes</span>
+              )}
+            </div>
           </div>
         </div>
       </div>

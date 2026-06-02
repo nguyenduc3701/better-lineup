@@ -26,6 +26,12 @@ export default function Pitch() {
     draggingPlayerId,
     formationA,
     formationB,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    handleBallTouchStart,
+    handleControlPointTouchStart,
+    handleDraftControlTouchStart,
     t
   } = useLineup();
 
@@ -34,10 +40,12 @@ export default function Pitch() {
 
   return (
     <div 
-      className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl"
+      className="bg-slate-900 border border-slate-800 rounded-2xl p-2 sm:p-4 shadow-xl"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUpOrLeave}
       onMouseLeave={handleMouseUpOrLeave}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
        {/* The Football Pitch container */}
        <div 
@@ -56,7 +64,8 @@ export default function Pitch() {
              #437e26 8.33%,
              #3b7021 8.33%,
              #3b7021 16.66%
-           )`
+           )`,
+           touchAction: "none",
          }}
       >
         {/* Pitch Marking Lines (SVG Overlay for high quality) */}
@@ -245,21 +254,24 @@ export default function Pitch() {
           </div>
         )}
 
-        {/* Render Ball */}
-        <div
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            draggingBall.current = true;
-          }}
-          className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-20 select-none touch-none w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] hover:scale-125 transition-transform text-lg sm:text-xl"
-          style={{
-            left: `${ball.x}%`,
-            top: `${ball.y}%`,
-          }}
-          title={t.ballTooltip}
-        >
-          ⚽
-        </div>
+        {/* Render Free Ball if not attached */}
+        {!ball.attachedPlayerId && (
+          <div
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              draggingBall.current = true;
+            }}
+            onTouchStart={(e) => handleBallTouchStart(e)}
+            className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-20 select-none touch-none w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] hover:scale-125 transition-transform text-xl sm:text-2xl"
+            style={{
+              left: `${ball.x}%`,
+              top: `${ball.y}%`,
+            }}
+            title={t.ballTooltip}
+          >
+            ⚽
+          </div>
+        )}
 
         {/* Render Players */}
         {players.filter(p => !p.isSubstitute || draggingPlayerId.current === p.id).map((player) => {
@@ -280,6 +292,7 @@ export default function Pitch() {
                   handleMouseDown(player.id);
                 }
               }}
+              onTouchStart={(e) => handleTouchStart(e, player.id)}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group touch-none"
               style={{
                 left: `${player.x}%`,
@@ -289,7 +302,7 @@ export default function Pitch() {
             >
               {/* Jersey Circle */}
               <div 
-                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full shadow-md transition-all duration-150 cursor-grab active:cursor-grabbing border-2 relative ${
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full shadow-md transition-all duration-150 cursor-grab active:cursor-grabbing border-2 relative ${
                   isSelected 
                     ? "border-white scale-110 ring-4 ring-emerald-400/40" 
                     : "border-slate-900 group-hover:scale-105"
@@ -302,10 +315,29 @@ export default function Pitch() {
                   backgroundColor: player.isHighlighted ? "#facc15" : color 
                 }}
               >
+                {/* Ball Indicator (Bottom Right) */}
+                {ball.attachedPlayerId === player.id && (
+                  <div 
+                    className="absolute bottom-[-6px] right-[-6px] z-40 flex items-center gap-0.5 bg-slate-950 border border-slate-700 rounded-full px-1 py-0.5 shadow-md scale-90 sm:scale-100"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-[10px] sm:text-xs leading-none">⚽</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBall(prev => ({ ...prev, attachedPlayerId: null, x: 50, y: 50 }));
+                      }}
+                      className="w-4 h-4 sm:w-3.5 sm:h-3.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold flex items-center justify-center text-[7px] sm:text-[9px] cursor-pointer border-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Player Name Tag */}
-              <div className={`mt-1.5 px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold shadow-sm transition-all duration-150 ${
+              <div className={`mt-1 px-1.5 py-0.5 rounded text-[9px] sm:text-xs font-semibold shadow-sm transition-all duration-150 ${
                 isSelected 
                   ? "bg-emerald-400 text-slate-950 font-bold" 
                   : player.isHighlighted
@@ -340,7 +372,8 @@ export default function Pitch() {
                   e.stopPropagation();
                   handleControlPointMouseDown(p.id, motion.id);
                 }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-amber-500 border border-white cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-slate-950 select-none shadow hover:bg-amber-400"
+                onTouchStart={(e) => handleControlPointTouchStart(e, p.id, motion.id)}
+                className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-amber-500 border border-white cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-slate-950 select-none shadow hover:bg-amber-400 touch-none"
                 style={{
                   left: `${midX}%`,
                   top: `${midY}%`,
@@ -367,7 +400,8 @@ export default function Pitch() {
                   e.stopPropagation();
                   handleDraftControlMouseDown(p.id);
                 }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-amber-600 border border-red-500 cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-white select-none shadow animate-pulse"
+                onTouchStart={(e) => handleDraftControlTouchStart(e, p.id)}
+                className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-amber-600 border border-red-500 cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-white select-none shadow animate-pulse touch-none"
                 style={{
                   left: `${midX}%`,
                   top: `${midY}%`,
