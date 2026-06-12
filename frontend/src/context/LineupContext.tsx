@@ -42,6 +42,10 @@ interface LineupContextType {
   setNewPhaseError: (err: string | null) => void;
   showTeamMotions: boolean;
   setShowTeamMotions: (show: boolean) => void;
+  isPitchVertical: boolean;
+  setIsPitchVertical: (v: boolean) => void;
+  isFullScreen: boolean;
+  setIsFullScreen: (f: boolean) => void;
   animationState: "idle" | "playing" | "finished";
   playMode: string;
   setPlayMode: (mode: string) => void;
@@ -83,6 +87,7 @@ interface LineupContextType {
   handleCancelMotion: (playerId: string) => void;
   handleDeleteMotion: (playerId: string) => void;
   handleNameChange: (playerId: string, newName: string) => void;
+  handleBulkNameChange: (updates: { playerId: string; newName: string }[]) => void;
   handleNumberChange: (playerId: string, newNumber: number) => void;
   handleToggleHighlight: (playerId: string) => void;
   handleFormationChange: (team: "A" | "B", formation: Formation) => void;
@@ -116,6 +121,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [newPhaseCategoryInput, setNewPhaseCategoryInput] = useState<"Attack" | "Defence" | "Custom">("Custom");
   const [newPhaseError, setNewPhaseError] = useState<string | null>(null);
   const [showTeamMotions, setShowTeamMotions] = useState(false);
+  const [isPitchVertical, setIsPitchVertical] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const MAX_BALL_MOVES = 10;
 
@@ -169,6 +176,15 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     });
   }, [activePhase]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isMobile = window.innerWidth < 640;
+      if (isMobile) {
+        setIsPitchVertical(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (ball.attachedPlayerId && !draggingBall.current) {
@@ -919,6 +935,12 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let pctX = Math.max(2, Math.min(98, (clientX / rect.width) * 100));
     let pctY = Math.max(2, Math.min(98, (clientY / rect.height) * 100));
 
+    if (isPitchVertical) {
+      const temp = pctX;
+      pctX = 100 - pctY;
+      pctY = temp;
+    }
+
     if (draggingBall.current) {
       setBall(prev => ({ ...prev, x: pctX, y: pctY }));
       return;
@@ -1006,7 +1028,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
       })
     );
-  }, [players]);
+  }, [players, isPitchVertical]);
 
   const handleMouseUpOrLeave = useCallback(() => {
     const wasDraggingPlayer = !!draggingPlayerId.current;
@@ -1180,10 +1202,15 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const rect = pitchRef.current.getBoundingClientRect();
     const clientX = touch.clientX - rect.left;
     const clientY = touch.clientY - rect.top;
-    const pctX = Math.max(2, Math.min(98, (clientX / rect.width) * 100));
-    const pctY = Math.max(2, Math.min(98, (clientY / rect.height) * 100));
+    let pctX = Math.max(2, Math.min(98, (clientX / rect.width) * 100));
+    let pctY = Math.max(2, Math.min(98, (clientY / rect.height) * 100));
+    if (isPitchVertical) {
+      const temp = pctX;
+      pctX = 100 - pctY;
+      pctY = temp;
+    }
     return { pctX, pctY };
-  }, []);
+  }, [isPitchVertical]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, playerId: string) => {
     e.preventDefault();
@@ -1557,6 +1584,28 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setPlayers(prev => prev.map(p => (p.id === playerId ? { ...p, name: newName } : p)));
   }, []);
 
+  const handleBulkNameChange = useCallback((updates: { playerId: string; newName: string }[]) => {
+    if (updates.length === 0) return;
+    const updateMap = new Map(updates.map(u => [u.playerId, u.newName]));
+    setPhases(prevPhases => {
+      const updatedPhases = { ...prevPhases };
+      Object.keys(updatedPhases).forEach(phaseName => {
+        updatedPhases[phaseName] = {
+          ...updatedPhases[phaseName],
+          players: updatedPhases[phaseName].players.map(p => {
+            const newName = updateMap.get(p.id);
+            return newName !== undefined ? { ...p, name: newName } : p;
+          })
+        };
+      });
+      return updatedPhases;
+    });
+    setPlayers(prev => prev.map(p => {
+      const newName = updateMap.get(p.id);
+      return newName !== undefined ? { ...p, name: newName } : p;
+    }));
+  }, []);
+
   const handleNumberChange = useCallback((playerId: string, newNumber: number) => {
     setPhases(prevPhases => {
       const updatedPhases = { ...prevPhases };
@@ -1634,6 +1683,10 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setNewPhaseError,
         showTeamMotions,
         setShowTeamMotions,
+        isPitchVertical,
+        setIsPitchVertical,
+        isFullScreen,
+        setIsFullScreen,
         animationState,
         playMode,
         setPlayMode,
@@ -1675,6 +1728,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         handleCancelMotion,
         handleDeleteMotion,
         handleNameChange,
+        handleBulkNameChange,
         handleNumberChange,
         handleToggleHighlight,
         handleFormationChange,

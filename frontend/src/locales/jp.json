@@ -73,5 +73,15 @@
   "playersSuffix": "名選手",
   "noSubstitutes": "控え選手なし",
   "quickStatsTooltip": "ヒント：選手をクリックして名前の変更や移動経路を描画できます。",
-  "redrawBtn": "描き直す"
+  "redrawBtn": "描き直す",
+  "switchTeamBtn": "選手一覧",
+  "teamRosterTitle": "選手名簿管理",
+  "startingPlayers": "スタメン",
+  "substitutePlayers": "控え選手",
+  "rosterPlaceholder": "1行に1名ずつ入力してください。例：\n田中太郎\n山田花子\n佐藤次郎",
+  "saveNames": "保存",
+  "closeModal": "閉じる",
+  "rotatePitch": "ピッチを回転",
+  "fullScreen": "全画面表示",
+  "exitFullScreen": "全画面表示を終了"
 }

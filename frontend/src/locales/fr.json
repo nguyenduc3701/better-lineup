@@ -73,5 +73,15 @@
   "playersSuffix": "Joueurs",
   "noSubstitutes": "Pas de remplaçants",
   "quickStatsTooltip": "Astuce : Cliquez sur n'importe quel joueur pour modifier son nom et dessiner des courses.",
-  "redrawBtn": "Redessiner"
+  "redrawBtn": "Redessiner",
+  "switchTeamBtn": "Effectif",
+  "teamRosterTitle": "Gestion de l'effectif",
+  "startingPlayers": "Titulaires",
+  "substitutePlayers": "Remplaçants",
+  "rosterPlaceholder": "Entrez un nom par ligne, ex. :\nDupont Jean\nMartin Paul\nDurand Luc",
+  "saveNames": "Enregistrer",
+  "closeModal": "Fermer",
+  "rotatePitch": "Faire pivoter le terrain",
+  "fullScreen": "Plein écran",
+  "exitFullScreen": "Quitter le plein écran"
 }

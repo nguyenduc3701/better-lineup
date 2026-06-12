@@ -10,6 +10,7 @@ export default function Pitch() {
     handleMouseUpOrLeave,
     showZones,
     showTeamMotions,
+    isPitchVertical,
     activeConfigTab,
     players,
     selectedPlayerId,
@@ -56,10 +57,12 @@ export default function Pitch() {
          onMouseMove={handleMouseMove}
          onMouseUp={handleMouseUpOrLeave}
          onMouseLeave={handleMouseUpOrLeave}
-         className="relative w-full aspect-[1.4] rounded-xl overflow-hidden shadow-2xl select-none cursor-crosshair border border-emerald-800/40"
+         className={`relative w-full rounded-xl overflow-hidden shadow-2xl select-none cursor-crosshair border border-emerald-800/40 transition-all ${
+           isPitchVertical ? "aspect-[1/1.4]" : "aspect-[1.4]"
+         }`}
          style={{
            background: `repeating-linear-gradient(
-             90deg,
+             ${isPitchVertical ? "0deg" : "90deg"},
              #437e26,
              #437e26 8.33%,
              #3b7021 8.33%,
@@ -101,50 +104,103 @@ export default function Pitch() {
           {/* Border line */}
           <rect x="2" y="2" width="96" height="96" fill="none" stroke="white" strokeWidth="0.4" />
           
-          {/* Halfway line */}
-          <line x1="50" y1="2" x2="50" y2="98" stroke="white" strokeWidth="0.4" />
-          
-          {is7v7Mode ? (
+          {!isPitchVertical ? (
             <>
-              {/* Center circle */}
-              <circle cx="50" cy="50" r="7" fill="none" stroke="white" strokeWidth="0.4" />
-              <circle cx="50" cy="50" r="0.7" fill="white" />
+              {/* Halfway line */}
+              <line x1="50" y1="2" x2="50" y2="98" stroke="white" strokeWidth="0.4" />
+              
+              {is7v7Mode ? (
+                <>
+                  {/* Center circle */}
+                  <circle cx="50" cy="50" r="7" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="50" r="0.7" fill="white" />
 
-              {/* Left Penalty Area */}
-              <rect x="2" y="32" width="12" height="36" fill="none" stroke="white" strokeWidth="0.4" />
-              <circle cx="9" cy="50" r="0.7" fill="white" />
-              <path d="M 14 45 A 6 6 0 0 1 14 55" fill="none" stroke="white" strokeWidth="0.4" />
+                  {/* Left Penalty Area */}
+                  <rect x="2" y="32" width="12" height="36" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="9" cy="50" r="0.7" fill="white" />
+                  <path d="M 14 45 A 6 6 0 0 1 14 55" fill="none" stroke="white" strokeWidth="0.4" />
 
-              {/* Right Penalty Area */}
-              <rect x="86" y="32" width="12" height="36" fill="none" stroke="white" strokeWidth="0.4" />
-              <circle cx="91" cy="50" r="0.7" fill="white" />
-              <path d="M 86 45 A 6 6 0 0 0 86 55" fill="none" stroke="white" strokeWidth="0.4" />
+                  {/* Right Penalty Area */}
+                  <rect x="86" y="32" width="12" height="36" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="91" cy="50" r="0.7" fill="white" />
+                  <path d="M 86 45 A 6 6 0 0 0 86 55" fill="none" stroke="white" strokeWidth="0.4" />
 
-              {/* Goal boxes */}
-              <rect x="0.5" y="45.5" width="1.5" height="9" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
-              <rect x="98" y="45.5" width="1.5" height="9" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                  {/* Goal boxes */}
+                  <rect x="0.5" y="45.5" width="1.5" height="9" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                  <rect x="98" y="45.5" width="1.5" height="9" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                </>
+              ) : (
+                <>
+                  {/* Center circle */}
+                  <circle cx="50" cy="50" r="10" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="50" r="0.7" fill="white" />
+
+                  {/* Left Penalty Area */}
+                  <rect x="2" y="25" width="15" height="50" fill="none" stroke="white" strokeWidth="0.4" />
+                  <rect x="2" y="38" width="5" height="24" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="11" cy="50" r="0.7" fill="white" />
+                  <path d="M 17 43 A 8 8 0 0 1 17 57" fill="none" stroke="white" strokeWidth="0.4" />
+
+                  {/* Right Penalty Area */}
+                  <rect x="83" y="25" width="15" height="50" fill="none" stroke="white" strokeWidth="0.4" />
+                  <rect x="93" y="38" width="5" height="24" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="89" cy="50" r="0.7" fill="white" />
+                  <path d="M 83 43 A 8 8 0 0 0 83 57" fill="none" stroke="white" strokeWidth="0.4" />
+
+                  {/* Goal boxes */}
+                  <rect x="0.5" y="44" width="1.5" height="12" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                  <rect x="98" y="44" width="1.5" height="12" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                </>
+              )}
             </>
           ) : (
             <>
-              {/* Center circle */}
-              <circle cx="50" cy="50" r="10" fill="none" stroke="white" strokeWidth="0.4" />
-              <circle cx="50" cy="50" r="0.7" fill="white" />
+              {/* Halfway line */}
+              <line x1="2" y1="50" x2="98" y2="50" stroke="white" strokeWidth="0.4" />
+              
+              {is7v7Mode ? (
+                <>
+                  {/* Center circle */}
+                  <circle cx="50" cy="50" r="7" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="50" r="0.7" fill="white" />
 
-              {/* Left Penalty Area */}
-              <rect x="2" y="25" width="15" height="50" fill="none" stroke="white" strokeWidth="0.4" />
-              <rect x="2" y="38" width="5" height="24" fill="none" stroke="white" strokeWidth="0.4" />
-              <circle cx="11" cy="50" r="0.7" fill="white" />
-              <path d="M 17 43 A 8 8 0 0 1 17 57" fill="none" stroke="white" strokeWidth="0.4" />
+                  {/* Top Penalty Area */}
+                  <rect x="32" y="2" width="36" height="12" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="9" r="0.7" fill="white" />
+                  <path d="M 45 14 A 6 6 0 0 1 55 14" fill="none" stroke="white" strokeWidth="0.4" />
 
-              {/* Right Penalty Area */}
-              <rect x="83" y="25" width="15" height="50" fill="none" stroke="white" strokeWidth="0.4" />
-              <rect x="93" y="38" width="5" height="24" fill="none" stroke="white" strokeWidth="0.4" />
-              <circle cx="89" cy="50" r="0.7" fill="white" />
-              <path d="M 83 43 A 8 8 0 0 0 83 57" fill="none" stroke="white" strokeWidth="0.4" />
+                  {/* Bottom Penalty Area */}
+                  <rect x="32" y="86" width="36" height="12" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="91" r="0.7" fill="white" />
+                  <path d="M 45 86 A 6 6 0 0 0 55 86" fill="none" stroke="white" strokeWidth="0.4" />
 
-              {/* Goal boxes */}
-              <rect x="0.5" y="44" width="1.5" height="12" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
-              <rect x="98" y="44" width="1.5" height="12" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                  {/* Goal boxes */}
+                  <rect x="45.5" y="0.5" width="9" height="1.5" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                  <rect x="45.5" y="98" width="9" height="1.5" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                </>
+              ) : (
+                <>
+                  {/* Center circle */}
+                  <circle cx="50" cy="50" r="10" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="50" r="0.7" fill="white" />
+
+                  {/* Top Penalty Area */}
+                  <rect x="25" y="2" width="50" height="15" fill="none" stroke="white" strokeWidth="0.4" />
+                  <rect x="38" y="2" width="24" height="5" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="11" r="0.7" fill="white" />
+                  <path d="M 43 17 A 8 8 0 0 1 57 17" fill="none" stroke="white" strokeWidth="0.4" />
+
+                  {/* Bottom Penalty Area */}
+                  <rect x="25" y="83" width="50" height="15" fill="none" stroke="white" strokeWidth="0.4" />
+                  <rect x="38" y="93" width="24" height="5" fill="none" stroke="white" strokeWidth="0.4" />
+                  <circle cx="50" cy="89" r="0.7" fill="white" />
+                  <path d="M 43 83 A 8 8 0 0 0 57 83" fill="none" stroke="white" strokeWidth="0.4" />
+
+                  {/* Goal boxes */}
+                  <rect x="44" y="0.5" width="12" height="1.5" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                  <rect x="44" y="98" width="12" height="1.5" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
+                </>
+              )}
             </>
           )}
 
@@ -172,7 +228,9 @@ export default function Pitch() {
               endY = motion.end.y - (dy / len) * offset;
             }
             
-            const pathData = `M ${motion.start.x} ${motion.start.y} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`;
+            const pathData = isPitchVertical
+              ? `M ${motion.start.y} ${100 - motion.start.x} Q ${ctrlY} ${100 - ctrlX} ${endY} ${100 - endX}`
+              : `M ${motion.start.x} ${motion.start.y} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`;
             
             return (
               <g key={motion.id}>
@@ -208,7 +266,9 @@ export default function Pitch() {
               endY = p.y - (dy / len) * offset;
             }
             
-            const pathData = `M ${p.motionStart.x} ${p.motionStart.y} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`;
+            const pathData = isPitchVertical
+              ? `M ${p.motionStart.y} ${100 - p.motionStart.x} Q ${ctrlY} ${100 - ctrlX} ${endY} ${100 - endX}`
+              : `M ${p.motionStart.x} ${p.motionStart.y} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`;
             
             return (
               <g key={`draft-arrow-${p.id}`}>
@@ -227,11 +287,20 @@ export default function Pitch() {
 
         {/* Tactical Zones Grid Overlay */}
         {showZones && (
-          <div className="absolute inset-0 grid grid-cols-6 grid-rows-3 pointer-events-none z-0">
+          <div className={`absolute inset-0 grid pointer-events-none z-0 ${
+            isPitchVertical ? "grid-cols-3 grid-rows-6" : "grid-cols-6 grid-rows-3"
+          }`}>
             {Array.from({ length: 18 }).map((_, index) => {
-              const col = index % 6;
-              const row = Math.floor(index / 6);
-              const zoneNum = col * 3 + row + 1;
+              let zoneNum;
+              if (isPitchVertical) {
+                const r = Math.floor(index / 3);
+                const c = index % 3;
+                zoneNum = (5 - r) * 3 + c + 1;
+              } else {
+                const col = index % 6;
+                const row = Math.floor(index / 6);
+                zoneNum = col * 3 + row + 1;
+              }
               const isZone14 = zoneNum === 14;
               
               return (
@@ -263,8 +332,8 @@ export default function Pitch() {
           onTouchStart={(e) => handleBallTouchStart(e)}
           className="absolute cursor-grab active:cursor-grabbing z-40 select-none touch-none w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] hover:scale-125 transition-transform text-xl sm:text-2xl"
           style={{
-            left: `${ball.x}%`,
-            top: `${ball.y}%`,
+            left: `${isPitchVertical ? ball.y : ball.x}%`,
+            top: `${isPitchVertical ? 100 - ball.x : ball.y}%`,
             transform: `translate(calc(-50% + ${ball.attachedPlayerId && !draggingBall.current ? '12px' : '0px'}), calc(-50% + ${ball.attachedPlayerId && !draggingBall.current ? '12px' : '0px'})) scale(${ball.attachedPlayerId && !draggingBall.current ? '0.7' : '1'})`
           }}
           title={t.ballTooltip}
@@ -294,8 +363,8 @@ export default function Pitch() {
               onTouchStart={(e) => handleTouchStart(e, player.id)}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group touch-none"
               style={{
-                left: `${player.x}%`,
-                top: `${player.y}%`,
+                left: `${isPitchVertical ? player.y : player.x}%`,
+                top: `${isPitchVertical ? 100 - player.x : player.y}%`,
                 zIndex: isSelected ? 30 : 10,
               }}
             >
@@ -355,8 +424,8 @@ export default function Pitch() {
                 onTouchStart={(e) => handleControlPointTouchStart(e, p.id, motion.id)}
                 className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-amber-500 border border-white cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-slate-950 select-none shadow hover:bg-amber-400 touch-none"
                 style={{
-                  left: `${midX}%`,
-                  top: `${midY}%`,
+                  left: `${isPitchVertical ? midY : midX}%`,
+                  top: `${isPitchVertical ? 100 - midX : midY}%`,
                 }}
                 title={t.controlPointTip}
               >
@@ -383,8 +452,8 @@ export default function Pitch() {
                 onTouchStart={(e) => handleDraftControlTouchStart(e, p.id)}
                 className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-amber-600 border border-red-500 cursor-pointer hover:scale-125 transition-transform z-40 flex items-center justify-center text-[8px] font-black text-white select-none shadow animate-pulse touch-none"
                 style={{
-                  left: `${midX}%`,
-                  top: `${midY}%`,
+                  left: `${isPitchVertical ? midY : midX}%`,
+                  top: `${isPitchVertical ? 100 - midX : midY}%`,
                 }}
                 title={t.controlPointTip}
               >

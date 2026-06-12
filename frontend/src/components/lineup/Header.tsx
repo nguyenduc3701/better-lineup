@@ -20,10 +20,8 @@ export default function Header() {
   return (
     <header className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-2 sm:gap-3">
-        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 flex-shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5 text-slate-950">
-            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 9a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V15a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V9z" clipRule="evenodd" />
-          </svg>
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden shadow-lg shadow-emerald-500/20 flex-shrink-0">
+          <img src="/icon.png" alt="Better Lineup Logo" className="w-full h-full object-cover" />
         </div>
         <div>
           <h1 className="text-base sm:text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">{t.title}</h1>
@@ -80,7 +78,7 @@ export default function Header() {
 
         <button
           onClick={startAnimation}
-          className={`p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer shadow-lg ${
+          className={`hidden sm:flex p-2.5 rounded-xl text-xs font-bold transition-all items-center justify-center cursor-pointer shadow-lg ${
             animationState === "playing"
               ? "bg-red-600 hover:bg-red-500 text-white shadow-red-600/20"
               : animationState === "finished"

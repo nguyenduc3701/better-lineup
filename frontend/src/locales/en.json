@@ -73,5 +73,15 @@
   "playersSuffix": "Players",
   "noSubstitutes": "No substitutes",
   "quickStatsTooltip": "Tip: Click any player to edit name and draw runs.",
-  "redrawBtn": "Redraw"
+  "redrawBtn": "Redraw",
+  "switchTeamBtn": "Team Roster",
+  "teamRosterTitle": "Team Roster Management",
+  "startingPlayers": "Starting XI",
+  "substitutePlayers": "Substitutes",
+  "rosterPlaceholder": "Enter one name per line, e.g.:\nNguyen Van A\nTran Van B\nLe Van C",
+  "saveNames": "Save",
+  "closeModal": "Close",
+  "rotatePitch": "Rotate Pitch",
+  "fullScreen": "Full Screen",
+  "exitFullScreen": "Exit Full Screen"
 }

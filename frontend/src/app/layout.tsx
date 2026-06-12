@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Better Lineup",
   description: "Tactical football lineup builder - drag & drop players, set formations, animate phases",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Better Lineup",
+  },
 };
 
 export const viewport = {

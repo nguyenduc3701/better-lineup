@@ -19,7 +19,7 @@ export default function MobilePlayModeBar() {
   } = useLineup();
 
   return (
-    <div className="sm:hidden flex items-center gap-2 px-3 py-2 bg-slate-900/60 border-b border-slate-800/60">
+    <div className="sm:hidden flex items-center gap-2 px-3 py-2 bg-slate-900/60 backdrop-blur-md border-b border-slate-800/60 sticky top-[57px] z-40">
       <select
         value={playMode}
         onChange={(e) => setPlayMode(e.target.value)}

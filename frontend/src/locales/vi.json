@@ -73,5 +73,15 @@
   "playersSuffix": "Cầu thủ",
   "noSubstitutes": "Không còn cầu thủ dự bị",
   "quickStatsTooltip": "Mẹo: Nhấp vào cầu thủ bất kỳ để chỉnh sửa tên và di chuyển.",
-  "redrawBtn": "Vẽ Lại"
+  "redrawBtn": "Vẽ Lại",
+  "switchTeamBtn": "Danh sách cầu thủ",
+  "teamRosterTitle": "Quản lý danh sách cầu thủ",
+  "startingPlayers": "Đội hình chính",
+  "substitutePlayers": "Cầu thủ dự bị",
+  "rosterPlaceholder": "Nhập mỗi tên trên một dòng, ví dụ:\nNguyễn Văn A\nTrần Văn B\nLê Văn C",
+  "saveNames": "Lưu",
+  "closeModal": "Đóng",
+  "rotatePitch": "Xoay dọc sân",
+  "fullScreen": "Toàn màn hình",
+  "exitFullScreen": "Thoát toàn màn hình"
 }

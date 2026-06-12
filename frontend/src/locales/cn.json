@@ -73,5 +73,15 @@
   "playersSuffix": "名球员",
   "noSubstitutes": "没有替补球员",
   "quickStatsTooltip": "提示：点击任一球员可修改名字并绘制跑位路径。",
-  "redrawBtn": "重新绘制"
+  "redrawBtn": "重新绘制",
+  "switchTeamBtn": "球员名单",
+  "teamRosterTitle": "球员名单管理",
+  "startingPlayers": "首发球员",
+  "substitutePlayers": "替补球员",
+  "rosterPlaceholder": "每行输入一个名字，例如：\n张三\n李四\n王五",
+  "saveNames": "保存",
+  "closeModal": "关闭",
+  "rotatePitch": "旋转球场",
+  "fullScreen": "全屏",
+  "exitFullScreen": "退出全屏"
 }
