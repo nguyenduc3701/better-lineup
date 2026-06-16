@@ -83,5 +83,7 @@
   "closeModal": "閉じる",
   "rotatePitch": "ピッチを回転",
   "fullScreen": "全画面表示",
-  "exitFullScreen": "全画面表示を終了"
+  "exitFullScreen": "全画面表示を終了",
+  "hideTeamB": "チームBを隠す",
+  "showTeamB": "チームBを表示"
 }

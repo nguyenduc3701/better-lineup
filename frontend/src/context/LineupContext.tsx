@@ -22,6 +22,8 @@ interface LineupContextType {
   setColorError: (err: string | null) => void;
   showZones: boolean;
   setShowZones: (show: boolean) => void;
+  showTeamB: boolean;
+  setShowTeamB: (show: boolean) => void;
   activeConfigTab: "A" | "B";
   setActiveConfigTab: (tab: "A" | "B") => void;
   phases: Record<string, PhaseData>;
@@ -109,6 +111,7 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [formationB, setFormationB] = useState<Formation>("4-4-2");
   const [colorError, setColorError] = useState<string | null>(null);
   const [showZones, setShowZones] = useState(false);
+  const [showTeamB, setShowTeamB] = useState(true);
   const [activeConfigTab, setActiveConfigTab] = useState<"A" | "B">("A");
   
   const [phases, setPhases] = useState<Record<string, PhaseData>>({});
@@ -1663,6 +1666,8 @@ export const LineupProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setColorError,
         showZones,
         setShowZones,
+        showTeamB,
+        setShowTeamB,
         activeConfigTab,
         setActiveConfigTab,
         phases,

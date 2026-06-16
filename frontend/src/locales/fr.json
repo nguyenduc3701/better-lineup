@@ -83,5 +83,7 @@
   "closeModal": "Fermer",
   "rotatePitch": "Faire pivoter le terrain",
   "fullScreen": "Plein écran",
-  "exitFullScreen": "Quitter le plein écran"
+  "exitFullScreen": "Quitter le plein écran",
+  "hideTeamB": "Masquer l'équipe B",
+  "showTeamB": "Afficher l'équipe B"
 }

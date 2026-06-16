@@ -10,6 +10,7 @@ export default function Pitch() {
     handleMouseUpOrLeave,
     showZones,
     showTeamMotions,
+    showTeamB,
     isPitchVertical,
     activeConfigTab,
     players,
@@ -205,7 +206,7 @@ export default function Pitch() {
           )}
 
           {/* Draw saved motions */}
-          {players.filter(p => !p.isSubstitute).map((p) => {
+          {players.filter(p => !p.isSubstitute && (showTeamB || p.team === "A")).map((p) => {
             const isPlayerSelected = p.id === selectedPlayerId;
             const isCurrentTeamShow = showTeamMotions && p.team === activeConfigTab;
 
@@ -247,7 +248,7 @@ export default function Pitch() {
           })}
 
           {/* Draw currently drawing motion */}
-          {players.filter(p => !p.isSubstitute).map((p) => {
+          {players.filter(p => !p.isSubstitute && (showTeamB || p.team === "A")).map((p) => {
             if (!p.motionStart) return null;
             
             const ctrlX = p.motionDraftControl ? p.motionDraftControl.x : (p.motionStart.x + p.x) / 2;
@@ -342,7 +343,7 @@ export default function Pitch() {
         </div>
 
         {/* Render Players */}
-        {players.filter(p => !p.isSubstitute || draggingPlayerId.current === p.id).map((player) => {
+        {players.filter(p => (!p.isSubstitute || draggingPlayerId.current === p.id) && (showTeamB || p.team === "A")).map((player) => {
           const color = player.isGoalkeeper 
             ? "#eab308" 
             : (player.team === "A" ? teamAColor : teamBColor);
@@ -400,7 +401,7 @@ export default function Pitch() {
         })}
 
         {/* Render control point handles for bending selected player's motions */}
-        {players.filter(p => !p.isSubstitute).map((p) => {
+        {players.filter(p => !p.isSubstitute && (showTeamB || p.team === "A")).map((p) => {
           if (p.id !== selectedPlayerId) return null;
           
           const handles: React.ReactNode[] = [];

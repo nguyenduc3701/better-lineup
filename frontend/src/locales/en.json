@@ -83,5 +83,7 @@
   "closeModal": "Close",
   "rotatePitch": "Rotate Pitch",
   "fullScreen": "Full Screen",
-  "exitFullScreen": "Exit Full Screen"
+  "exitFullScreen": "Exit Full Screen",
+  "hideTeamB": "Hide Team B",
+  "showTeamB": "Show Team B"
 }

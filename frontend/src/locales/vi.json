@@ -83,5 +83,7 @@
   "closeModal": "Đóng",
   "rotatePitch": "Xoay dọc sân",
   "fullScreen": "Toàn màn hình",
-  "exitFullScreen": "Thoát toàn màn hình"
+  "exitFullScreen": "Thoát toàn màn hình",
+  "hideTeamB": "Ẩn Đội B",
+  "showTeamB": "Hiển thị Đội B"
 }

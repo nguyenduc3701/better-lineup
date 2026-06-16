@@ -83,5 +83,7 @@
   "closeModal": "닫기",
   "rotatePitch": "경기장 회전",
   "fullScreen": "전체 화면",
-  "exitFullScreen": "전체 화면 종료"
+  "exitFullScreen": "전체 화면 종료",
+  "hideTeamB": "팀 B 숨기기",
+  "showTeamB": "팀 B 표시"
 }

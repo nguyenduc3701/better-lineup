@@ -83,5 +83,7 @@
   "closeModal": "关闭",
   "rotatePitch": "旋转球场",
   "fullScreen": "全屏",
-  "exitFullScreen": "退出全屏"
+  "exitFullScreen": "退出全屏",
+  "hideTeamB": "隐藏 B 队",
+  "showTeamB": "显示 B 队"
 }

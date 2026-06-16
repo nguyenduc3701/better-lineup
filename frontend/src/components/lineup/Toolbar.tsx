@@ -12,6 +12,8 @@ export default function Toolbar() {
     setShowZones,
     showTeamMotions,
     setShowTeamMotions,
+    showTeamB,
+    setShowTeamB,
     isPitchVertical,
     setIsPitchVertical,
     setIsFullScreen,
@@ -88,6 +90,28 @@ export default function Toolbar() {
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
           </svg>
+        </button>
+
+        {/* Toggle Team B Visibility button */}
+        <button
+          onClick={() => setShowTeamB(!showTeamB)}
+          className={`p-2.5 rounded-lg border transition-all flex items-center justify-center cursor-pointer min-h-[36px] min-w-[36px] ${
+            !showTeamB
+              ? "bg-red-500/20 text-red-400 border-red-500/40"
+              : "bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700"
+          }`}
+          title={showTeamB ? t.hideTeamB : t.showTeamB}
+        >
+          {showTeamB ? (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.43 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.815 7.815 3 3m-3-3a10.49 10.49 0 0 1-5.347 1.487M15.394 15.394a4.5 4.5 0 0 1-6.788-6.788m0 0 3.394 3.394" />
+            </svg>
+          )}
         </button>
 
         {/* Rotate Pitch button */}
